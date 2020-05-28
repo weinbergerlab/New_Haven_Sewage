@@ -1,0 +1,37 @@
+model
+{
+
+for(i in 1:172){
+
+EXgivenZG[i] <- (betaXZ * Z[i]) + betaXG[gid[i]]
+X[i] ~ dnorm(EXgivenZG[i], precXgivenZG)
+
+
+
+precWgivenX[i] <- 1.0 / ( (ifelse(X[i] <= -1.23014816864525,0.000471669489927226,0.0)) + (ifelse(X[i] > 4.64835587365714,34.8126195958651,0.0)) + (ifelse( (X[i] > -1.23014816864525) && (X[i] <= 4.64835587365714), exp( (0.403095217905756) + (1.10252984070335)*(X[i]) + (-0.270517107978706)*(X[i]^2) + (1.09645424946792)*(X[i]^3) + (-0.896478001969439)*(X[i]^4) + (0.250235172551371)*(X[i]^5) + (-0.0229026475860435)*(X[i]^6) ), 0.0)) )
+W[i] ~ dnorm(X[i], precWgivenX[i])
+
+
+eta[i] <- (betaYXZ[1] * X[i]) + (betaYXZ[2] * Z[i])  + betaYG[gid[i]]
+Y[i] ~ dpois(exp(eta[i]))
+}
+
+betaXZ ~ dnorm(0.0, 1e-8)
+betaYXZ[1:2] ~ dmnorm(betaYXZ_zeros[1:2], betaYXZ_prec[1:2,1:2])
+
+
+for(g in 1:43){
+  betaYG[g] ~ dnorm(0.0, 1e-8)
+}
+betaYG[44] <- -1.0 * sum(betaYG[1:43])
+
+for(g in 1:43){
+  betaXG[g] ~ dnorm(0.0, 1e-8)
+}
+betaXG[44] <- -1.0 * sum(betaXG[1:43])
+
+sdXgivenZG ~ dunif(0,10)
+varXgivenZG <- sdXgivenZG^2
+precXgivenZG <- 1.0/varXgivenZG
+
+}
