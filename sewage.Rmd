@@ -1,0 +1,206 @@
+---
+title: "sewage"
+author: "Dan Weinberger"
+date: "5/26/2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(eivtools)
+library(readxl)
+library(reshape2)
+library(HDInterval)
+library(rjags)
+library(xtable)
+
+source('./Models/mod1.deriv.R')
+source('./Models/mod2.dist.lag.alt2.R')
+
+```
+
+## Overview
+This is a reanalysis of data examining increases in SARS-CoV-2 RNA concentrations in primary sewage sludge in relation to COVID-19 hospitalizations and cases. The original preprint, led by Jordan Peccia, et al can be found here: https://www.medrxiv.org/content/10.1101/2020.05.19.20105999v1 
+The original pre-print included a correlation of smoothed versions of the viral RNA data and the epidemiological indicators. This ignores the uncertainty in both the X and Y variable. In the analyses presented here, we use an error-in-variables model to get an estimate of the underlying viral dynamics in sewage and the relationship of this with hospitalizations. This is done in a Bayesian framework with minimally-informative priors. This allows the uncertainty to be properly reflected in the estimates. The re-analysis was performed by Dan Weinberger (Epidemiology of Microbial Diseases, Yale School of Public Health), with input from Josh Warren (Biostatistics, Yale School of Public Health).
+
+```{r, eval=F, include=F}
+## Combine data (only need to do this once)
+
+ds1 <- read_excel('./raw RNA data.xlsx')
+ds1.m <- melt(ds1, id.vars='DATE')
+names(ds1.m) <- c('date', 'test','conc')
+
+ds2 <- read_excel('./epi.data.xlsx')
+
+ds3 <- merge(ds2, ds1.m, by='date', all=T)
+ds3$conc <- as.numeric(ds3$conc)
+ds3$target <- 'n1'
+ds3$target[grep('n1', ds3$test)] <- 'n2'
+
+write.csv(ds3,'./combined.data.csv')
+```
+
+```{r}
+## read in combined data
+
+ds3 <- read.csv('./Data/combined.data.csv')
+ds3$date <- as.Date(ds3$date)
+```
+
+
+## Plots of raw data
+
+This shows that one of the PCR targets is consistently higher than the other--will need to adjust for this in the model
+```{r}
+plot(ds3$date, ds3$hospt_admit, type='l', bty='l', main='Hospitalizations')
+plot(ds3$date, ds3$new.cases, type='l', main='New reported cases')
+
+plot(ds3$date, ds3$conc, main='Viral RNA in Sewage', col=as.factor(ds3$target), xlab='Date', ylab='Concentration')
+```
+
+
+```{r}
+## Prepare data for JAGS
+
+ds.mod <- ds3[!(is.nan(ds3$conc)),]
+ds.mod <- ds.mod[!(is.na(ds.mod$conc)),]
+
+ds.mod$log.conc <- as.vector(log(ds.mod$conc))
+
+ds.mod.m <- melt(ds.mod[,c('date','test','log.conc','hospt_admit')], id.vars=c('date', 'test'))
+ds.mod.c <- dcast(ds.mod.m, date~variable+test, fun.aggregate = mean)
+W1 <- ds.mod.c[, grep('log.conc', names(ds.mod.c))] 
+W1 <- apply(W1, 2, function(x){
+  x[is.nan(x)] <-NA
+  return(x)
+} )
+Y1 <- ds.mod.c[,'hospt_admit_rep1_n1']
+Y1[is.nan(Y1)] <-NA
+
+```
+
+## Model hospitalizations as a function of lags of viral RNA in sewage
+
+```{r}
+mod2 <- mod2.func(W=W1, Y=Y1)
+
+```
+
+Distributed lags for the association betwene viral RNA in sewage and COVID hospitalizations. This shows that lags of 1-4 days are associated with hospitalization. +/-90% Credible Intervals.
+
+```{r}
+yrange <- range(mod2$beta1)
+plot(0:7, mod2$beta1$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)' , pch=16)
+arrows(x0=0:7, y0=mod2$beta1$lower, y1=mod2$beta1$upper, length=0)
+abline(h=0)
+```
+
+Cumulative relationship between viral RNA in sewage and hospital admissions. This shows that lags of sewage data of 1-4 days together best correlate with the hospitalization time series. +/-90% Credible Intervals.
+
+```{r}
+yrange <- range(mod2$beta1.cum)
+plot(0:7, mod2$beta1.cum$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)', pch=16 )
+arrows(x0=0:7, y0=mod2$beta1.cum$lower, y1=mod2$beta1.cum$upper, length=0)
+abline(h=0)
+```
+
+Beta coefficients for viral RNA concentration in sewage at each lag
+```{r, echo=F}
+beta.format <- paste0(round(mod2$beta1[,1],2), ', (' , round(mod2$beta1[,2],2) , ',' , round(mod2$beta1[,3],2), ')'   )
+
+beta.format<- cbind.data.frame('lag'=0:7, beta.format)
+xtable(beta.format)
+```
+
+This shows the viral concentration as measured by qPCR, smoothed with a random walk model. Each dot represents a separate qPCR run. For each time point, there were two targets tested, and 2 replicates of each. One of the targets is consistently higher, and this is adjusted for in the model. Lags of the random walk trajectory are used in the distributed lags model of hospitalizations.
+
+```{r}
+times <- 1:nrow(mod2$rw.x)
+yrange=range(c((W1),(as.matrix(mod2$rw.x ))), na.rm=T)
+plot(times, (mod2$rw.x[,1]), type='l', bty='l', ylim=yrange, ylab='Scaled-log-Viral concentration')
+polygon(c(times, rev(times)),  c((mod2$rw.x[,2]), rev((mod2$rw.x[,3]))) ,col = rgb(0, 0, 1, alpha = 0.1), border = NA ) 
+
+matplot((W1), add=T, type='p')
+
+```
+
+
+## Smoothed curves of hospitalization and qPCR data
+Note these are presented only for visualization purposes and are not used in the above analyses. Each curve is smoothed separately using a 2nd order random walk model.
+```{r, include=F}
+## Smooth X and y separately
+#These plots use a random walk, order 2 to smooth the qPCR data and hospitalization data for visualization
+mod1 <- mod1.func(Y=Y1, W=W1)
+```
+
+```{r, fig.width=4, fig.height=6, include=T}
+par(mfrow=c(2,1), mar=c(2,4,1,1))
+t <- 1:nrow(mod1$rw.x)
+ylim1 <- range(c((mod1$rw.x),(W1)), na.rm=T)
+matplot(t, (mod1$rw.x), col='blue', main='Smoothed Viral concentration', type='l',lty=c(1,2,2), bty='l', ylim=ylim1, ylab='Scaled-log-viral concentration')
+matplot((W1), add=T, type='p')
+
+ylim2 <- range(c(exp(mod1$rw.y),Y1), na.rm=T)
+matplot(t , exp(mod1$rw.y), col='red', main='Smoothed Hospitalizations', type='l',lty=c(1,2,2), bty='l', ylim=ylim2)
+matplot(Y1, add=T, type='p')
+
+```
+
+
+
+```{r, eval=F}
+## Evaluate correlation between viral rna in sewage and new reported cases
+
+#Note data on new cases are missing
+ds.mod.m <- melt(ds.mod[!is.na(ds.mod$new.cases),c('date','test','log.conc','new.cases')], id.vars=c('date', 'test'))
+ds.mod.c <- dcast(ds.mod.m, date~variable+test, fun.aggregate = mean)
+W2 <- ds.mod.c[, grep('log.conc', names(ds.mod.c))] 
+W2 <- apply(W2, 2, function(x){
+  x[is.nan(x)] <-NA
+  return(x)
+} )
+Y2 <- ds.mod.c[,'new.cases_rep1_n1']
+Y2[is.nan(Y2)] <-NA
+```
+
+```{r, eval=F}
+mod2 <- mod2.func(W=W2, Y=Y2)
+
+```
+
+
+```{r, eval=F}
+#Distributed lags for the association between viral RNA in sewage and COVID hospitalizations. This shows that lags of 1-4 days are associated with hospitalization. +/-90% Credible Intervals.
+
+yrange <- range(mod2$beta1)
+plot(0:7, mod2$beta1$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)' , pch=16)
+arrows(x0=0:7, y0=mod2$beta1$lower, y1=mod2$beta1$upper, length=0)
+abline(h=0)
+```
+
+
+```{r, eval=F}
+#Cumulative relationship between viral RNA in sewage and new cases. This shows that lags of sewage data of 3-7 days together best correlate with the hospitalization time series. +/-90% Credible Intervals.
+
+yrange <- range(mod2$beta1.cum)
+plot(0:7, mod2$beta1.cum$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)', pch=16 )
+arrows(x0=0:7, y0=mod2$beta1.cum$lower, y1=mod2$beta1.cum$upper, length=0)
+abline(h=0)
+```
+
+```{r, echo=F, eval=F}
+#Beta coefficients for viral RNA concentration in sewage at each lag, as a correlate of new cases
+
+beta.format <- paste0(round(mod2$beta1[,1],2), ', (' , round(mod2$beta1[,2],2) , ',' , round(mod2$beta1[,3],2), ')'   )
+
+beta.format<- cbind.data.frame('lag'=0:7, beta.format)
+tab1 <- xtable(beta.format)
+print(tab1, type='html')
+```
+
+
+
+
+

@@ -11,7 +11,7 @@ W1[i,2] ~ dnorm(X1[i] + delta, prec.w1)  #Replicate 1, Target 2
 W1[i,4] ~ dnorm(X1[i] + delta, prec.w1)  #Replicate 2, Target 2
 
 X1[i] =   phi.x[i]  #X1[i] is a RW2
-#exp.X1[i] = exp(X1[i])
+exp.X1[i] = exp(X1[i])
 
 }
 for(i in (nlags+1):(n.times)){
@@ -19,14 +19,14 @@ for(i in (nlags+1):(n.times)){
 Y[i] ~ dpois(lambda[i])
 
 log(lambda[i]) = (
-beta1[1]*X1[i] + 
- beta1[2]*X1[i-1] +
- beta1[3]*X1[i-2] +
- beta1[4]*X1[i-3] +
- beta1[5]*X1[i-4] +
- beta1[6]*X1[i-5] +
- beta1[7]*X1[i-6]+
- beta1[8]*X1[i-7] +
+beta1[1]*exp.X1[i] + 
+ beta1[2]*exp.X1[i-1] +
+ beta1[3]*exp.X1[i-2] +
+ beta1[4]*exp.X1[i-3] +
+ beta1[5]*exp.X1[i-4] +
+ beta1[6]*exp.X1[i-5] +
+ beta1[7]*exp.X1[i-6]+
+ beta1[8]*exp.X1[i-7] +
 phi.y[i]
 )
 }
