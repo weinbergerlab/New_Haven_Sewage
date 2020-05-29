@@ -25,18 +25,17 @@ phi.x0 ~ dnorm(0.00, 0.0001)
 prec.w1 <- 1/sdW^2
 sdW ~ dunif(0,100)
 
-#2nd order RW for X and Y
+#AR1 for X and Y
 phi.x[1] ~ dnorm(0.00, tau.rw.x)
-phi.x[2] ~ dnorm(0.00, tau.rw.x)
-
 phi.y[1] ~ dnorm(0.00, tau.rw.y)
-phi.y[2] ~ dnorm(0.00, tau.rw.y)
 
-for(g in 3:n.times){
-  phi.x[g]~ dnorm(2*phi.x[g-1] - phi.x[g-2], tau.rw.x)
-  phi.y[g]~ dnorm(2*phi.y[g-1] - phi.y[g-2], tau.rw.y)
+for(g in 2:n.times){
+  phi.x[g]~ dnorm(rho.x*phi.x[g-1], tau.rw.x)
+  phi.y[g]~ dnorm(rho.y*phi.y[g-1], tau.rw.y)
 }
 
+rho.x~dunif(0,1)
+rho.y~dunif(0,1)
 tau.rw.x <- 1/sd.rw.x^2
 tau.rw.y <- 1/sd.rw.y^2
 
