@@ -10,8 +10,8 @@ W[i,3] ~ dnorm(X[i], prec.w1)  #Replicate 2, Target 1
 W[i,2] ~ dnorm(X[i], prec.w1)  #Replicate 1, Target 2
 W[i,4] ~ dnorm(X[i], prec.w1)  #Replicate 2, Target 2
 
-X1[i] = phi.x0 + phi.x[i]  #X1[i] is a RW2
-exp.X1[i] = exp(X1[i])
+X[i] = phi.x0 + phi.x[i]  #X[i] is a RW2
+exp.X[i] = exp(X[i])
 
 }
 
@@ -34,7 +34,7 @@ log(lambda[i]) =
  phi.y[i])
 }
 
-beta0 ~ dnorm(0, 1e-4)
+beta0 ~ dnorm(0.00, 0.0001)
  
 #Distributed lag parameters have a RW structure
 beta1[1] ~ dnorm(0.00, 0.0001)
@@ -54,12 +54,12 @@ prec.beta <- 1/sd.beta^2
 sd.beta ~ dunif(0,100)
 
 # and X RW1 for Y
-phi.x[1]~ dnorm(0.00, 0.0001)
-phi.y[1]~ dnorm(0.00, 0.0001)
+phi.x[1] ~ dnorm(0.00, tau.rw.x)
+phi.y[1] ~ dnorm(0.00, tau.rw.y)
 
 for(g in 2:(n.times)){
-  phi.y[g]~ dnorm(phi.y[g-1] , tau.rw.y)
-  phi.x[g]~ dnorm(phi.x[g-1] , tau.rw.x)
+  phi.y[g] ~ dnorm(phi.y[g-1] , tau.rw.y)
+  phi.x[g] ~ dnorm(phi.x[g-1] , tau.rw.x)
 }
 
 tau.rw.x <- 1/sd.rw.x^2
