@@ -1,4 +1,4 @@
-mod2.func<-function(W, Y, nlags=7) {
+mod2.func<-function(W, Y, log.offset, nlags=7) {
   mod2 <- "
   model{
 
@@ -30,7 +30,9 @@ log(lambda[i]) =
  beta1[6]*X[i-5] +
  beta1[7]*X[i-6] +
  beta1[8]*X[i-7] +
- phi.y[i]) #phi.y is an AR1
+ phi.y[i] + #phi.y is an AR1
+ log.offset[i]
+ ) 
 }
 
 beta0 ~ dnorm(0.00, 0.0001)
@@ -92,6 +94,7 @@ model_jags<-jags.model(model_spec,
                        data=list('Y' = Y,
                                  'W' = W,
                                  'nlags'=nlags,
+                                 'log.offset'=log.offset,
                                  'n.times'=(length(Y))),
                        n.adapt=10000, 
                        n.chains=3)
