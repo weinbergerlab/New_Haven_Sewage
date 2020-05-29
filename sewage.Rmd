@@ -81,12 +81,15 @@ scale.W1 <- apply(W1,2, scale)
 Y1 <- ds.mod.c[,'hospt_admit_rep1_n1']
 Y1[is.nan(Y1)] <-NA
 
+W1.scale <- apply(W1,2,scale)
+
 ```
 
 ## Model hospitalizations as a function of lags of viral RNA in sewage
 
 ```{r}
-mod2 <- mod2.func(W=scale.W1, Y=Y1)
+mod2 <- mod2.func(W=W1.scale, Y=Y1)
+
 
 ```
 
@@ -119,12 +122,13 @@ beta.format
 This shows the viral concentration as measured by qPCR, smoothed with a random walk model. Each dot represents a separate qPCR run. For each time point, there were two targets tested, and 2 replicates of each. One of the targets is consistently higher, and this is adjusted for in the model. Lags of the random walk trajectory are used in the distributed lags model of hospitalizations.
 
 ```{r}
-times <- 1:nrow(mod2$rw.x)
-yrange=range(c(exp(W1),exp(as.matrix(mod2$rw.x ))), na.rm=T)
-plot(times, exp(mod2$rw.x[,1]), type='l', bty='l', ylim=yrange, ylab='Viral concentration')
-polygon(c(times, rev(times)),  c(exp(mod2$rw.x[,2]), rev(exp(mod2$rw.x[,3]))) ,col = rgb(0, 0, 1, alpha = 0.1), border = NA ) 
+times <- 1:nrow(mod2$X)
+yrange=range(c((W1.scale),(as.matrix(mod2$X ))), na.rm=T)
+plot(times, (mod2$X[,1]), type='l', bty='l', ylim=yrange, ylab='Scaled-log-Viral concentration', lwd=2)
+polygon(c(times, rev(times)),  c((mod2$X[,2]), rev((mod2$X[,3]))) ,col = rgb(0, 0, 1, alpha = 0.1), border = NA ) 
 
-matplot(exp(W1), add=T, type='p')
+matplot((W1.scale), add=T, type='p')
+
 
 ```
 
@@ -151,14 +155,17 @@ matplot(Y1, add=T, type='p')
 ```
 
 
-##Association of viral load with new cases. 
+## Association of viral load with new cases. 
 Seem to be some convergence issues with this model that need to be resolved, possibly due to missing cases data
 
 ```{r, eval=F}
 ## Evaluate correlation between viral rna in sewage and new reported cases
 
+```{r, eval=T}
+
 #Note data on new cases are missing
-ds.mod.m <- melt(ds.mod[!is.na(ds.mod$new.cases),c('date','test','log.conc','new.cases')], id.vars=c('date', 'test'))
+#ds.mod.m <- melt(ds.mod[!is.na(ds.mod$new.cases),c('date','test','log.conc','new.cases')], id.vars=c('date', 'test'))
+ds.mod.m <- melt(ds.mod[,c('date','test','log.conc','new.cases')], id.vars=c('date', 'test'))
 ds.mod.c <- dcast(ds.mod.m, date~variable+test, fun.aggregate = mean)
 W2 <- ds.mod.c[, grep('log.conc', names(ds.mod.c))] 
 W2 <- apply(W2, 2, function(x){
@@ -168,16 +175,19 @@ W2 <- apply(W2, 2, function(x){
 scale.W2 <- apply(W2, 2, scale)
 Y2 <- ds.mod.c[,'new.cases_rep1_n1']
 Y2[is.nan(Y2)] <-NA
+
+W2.scale <- apply(W2,2, scale)
 ```
 
 ```{r, eval=F}
-mod2 <- mod2.func(W=scale.W2, Y=Y2)
+mod2 <- mod2.func(W=W2.scale, Y=Y2)
+
 
 ```
 
+### Distributed lags for the association between viral RNA in sewage and COVID hospitalizations. This shows that lags longer lags are associated with cases time series (on the cumualative plot) +/-90% Credible Intervals.
 
 ```{r, eval=F}
-#Distributed lags for the association between viral RNA in sewage and COVID hospitalizations. This shows that lags of 1-4 days are associated with hospitalization. +/-90% Credible Intervals.
 
 yrange <- range(mod2$beta1)
 plot(0:7, mod2$beta1$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)' , pch=16)
@@ -194,15 +204,14 @@ plot(0:7, mod2$beta1.cum$post_means, ylim=yrange, bty='l', ylab='Cumulative beta
 arrows(x0=0:7, y0=mod2$beta1.cum$lower, y1=mod2$beta1.cum$upper, length=0)
 abline(h=0)
 ```
+### Beta coefficients for viral RNA concentration in sewage at each lag, as a correlate of new cases
 
 ```{r, echo=F, eval=T}
-#Beta coefficients for viral RNA concentration in sewage at each lag, as a correlate of new cases
 
 beta.format <- paste0(round(mod2$beta1[,1],2), ', (' , round(mod2$beta1[,2],2) , ',' , round(mod2$beta1[,3],2), ')'   )
 
 beta.format<- cbind.data.frame('lag'=0:7, beta.format)
-tab1 <- xtable(beta.format)
-print(tab1, type='html')
+beta.format
 ```
 
 
