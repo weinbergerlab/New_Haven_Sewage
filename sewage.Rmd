@@ -16,7 +16,7 @@ library(HDInterval)
 library(rjags)
 library(xtable)
 
-source('./Models/mod1.deriv.R')
+source('./Models/mod1.deriv.ar1.R')
 source('./Models/mod2.dist.lag.alt2.R')
 
 ```
@@ -76,6 +76,8 @@ W1 <- apply(W1, 2, function(x){
   x[is.nan(x)] <-NA
   return(x)
 } )
+
+scale.W1 <- apply(W1,2, scale)
 Y1 <- ds.mod.c[,'hospt_admit_rep1_n1']
 Y1[is.nan(Y1)] <-NA
 
@@ -87,6 +89,7 @@ W1.scale <- apply(W1,2,scale)
 
 ```{r}
 mod2 <- mod2.func(W=W1.scale, Y=Y1)
+
 
 ```
 
@@ -126,31 +129,36 @@ polygon(c(times, rev(times)),  c((mod2$X[,2]), rev((mod2$X[,3]))) ,col = rgb(0, 
 
 matplot((W1.scale), add=T, type='p')
 
+
 ```
 
 
 ## Smoothed curves of hospitalization and qPCR data
-Note these are presented only for visualization purposes and are not used in the above analyses. Each curve is smoothed separately using a 2nd order random walk model.
+Note these are presented only for visualization purposes and are not used in the above analyses. Each curve is smoothed separately using an AR(1) random effect.
 ```{r, include=F}
 ## Smooth X and y separately
 #These plots use a random walk, order 2 to smooth the qPCR data and hospitalization data for visualization
-mod1 <- mod1.func(Y=Y1, W=W1)
+mod1 <- mod1.func(Y=Y1, W=scale.W1)
 ```
 
 ```{r, fig.width=4, fig.height=6, include=T}
 par(mfrow=c(2,1), mar=c(2,4,1,1))
-t <- 1:nrow(mod1$rw.x)
-ylim1 <- range(c((mod1$rw.x),(W1)), na.rm=T)
-matplot(t, (mod1$rw.x), col='blue', main='Smoothed Viral concentration', type='l',lty=c(1,2,2), bty='l', ylim=ylim1, ylab='Scaled-log-viral concentration')
-matplot((W1), add=T, type='p')
+t <- 1:nrow(mod1$X1)
+ylim1 <- range(c(exp(mod1$X1),(scale.W1)), na.rm=T)
+matplot(t, exp(mod1$X1), col='blue', main='Smoothed Viral concentration', type='l',lty=c(1,2,2), bty='l', ylim=ylim1, ylab='Viral concentration')
+matplot(exp(scale.W1), add=T, type='p')
 
-ylim2 <- range(c(exp(mod1$rw.y),Y1), na.rm=T)
-matplot(t , exp(mod1$rw.y), col='red', main='Smoothed Hospitalizations', type='l',lty=c(1,2,2), bty='l', ylim=ylim2)
+ylim2 <- range(c((mod1$lambda),Y1), na.rm=T)
+matplot(t , (mod1$lambda), col='red', main='Smoothed Hospitalizations', type='l',lty=c(1,2,2), bty='l', ylim=ylim2)
 matplot(Y1, add=T, type='p')
 
 ```
 
 
+## Association of viral load with new cases. 
+Seem to be some convergence issues with this model that need to be resolved, possibly due to missing cases data
+
+```{r, eval=F}
 ## Evaluate correlation between viral rna in sewage and new reported cases
 
 ```{r, eval=T}
@@ -164,6 +172,7 @@ W2 <- apply(W2, 2, function(x){
   x[is.nan(x)] <-NA
   return(x)
 } )
+scale.W2 <- apply(W2, 2, scale)
 Y2 <- ds.mod.c[,'new.cases_rep1_n1']
 Y2[is.nan(Y2)] <-NA
 
@@ -172,6 +181,7 @@ W2.scale <- apply(W2,2, scale)
 
 ```{r, eval=F}
 mod2 <- mod2.func(W=W2.scale, Y=Y2)
+
 
 ```
 
