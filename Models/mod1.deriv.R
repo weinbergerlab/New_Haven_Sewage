@@ -6,34 +6,31 @@ for(i in 1:n.times){
 
 Y[i] ~ dpois(lambda[i])
 
-log(lambda[i]) = phi.y[i]
+log(lambda[i]) = phi.y0 + phi.y[i]
 
 #Observation error on X1
-W1[i,1] ~ dnorm(X1[i], prec.w1)  #Replicate 1, Target 1
-W1[i,3] ~ dnorm(X1[i], prec.w1)  #Replicate 2, Target 1
-W1[i,2] ~ dnorm(X1[i] + delta, prec.w1)  #Replicate 1, Target 2
-W1[i,4] ~ dnorm(X1[i] + delta, prec.w1)  #Replicate 2, Target 2
+W[i,1] ~ dnorm(X[i], prec.w1)  #Replicate 1, Target 1
+W[i,3] ~ dnorm(X[i], prec.w1)  #Replicate 2, Target 1
+W[i,2] ~ dnorm(X[i], prec.w1)  #Replicate 1, Target 2
+W[i,4] ~ dnorm(X[i], prec.w1)  #Replicate 2, Target 2
 
-X1[i] =  phi.x[i]  #X1[i] is a RW2
+X1[i] =  phi.x0 + phi.x[i]  #X1[i] is a RW2
 
 }
 
-delta ~ dnorm(0,1e-4)
-
+phi.y0 ~ dnorm(0.00, 0.0001)
+phi.x0 ~ dnorm(0.00, 0.0001)
 
 #precision on observation of viral RNA
 prec.w1 <- 1/sdW^2
 sdW ~dunif(0,100)
 
-prec.beta <- 1/sd.beta^2
-sd.beta ~ dunif(0,100)
-
 #2nd order RW for X and Y
-phi.x[1]~ dnorm(0, 0.001)
-phi.x[2]~ dnorm(0, 0.001)
+phi.x[1]~ dnorm(0, 0.0001)
+phi.x[2]~ dnorm(0, 0.0001)
 
-phi.y[1]~ dnorm(0, 0.001)
-phi.y[2]~ dnorm(0, 0.001)
+phi.y[1]~ dnorm(0, 0.0001)
+phi.y[2]~ dnorm(0, 0.0001)
 
 for(g in 3:n.times){
   phi.x[g]~ dnorm(2*phi.x[g-1] - phi.x[g-2], tau.rw.x)
@@ -75,7 +72,7 @@ model_spec<-textConnection(mod1)
 model_jags<-jags.model(model_spec, 
                        inits=list(inits1,inits2, inits3),
                        data=list('Y' = Y,
-                                 'W1' = W,
+                                 'W' = W,
                                  'n.times'=(length(Y))),
                        n.adapt=10000, 
                        n.chains=3)
