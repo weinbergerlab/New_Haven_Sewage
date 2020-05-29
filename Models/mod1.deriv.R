@@ -8,7 +8,7 @@ Y[i] ~ dpois(lambda[i])
 
 log(lambda[i]) = phi.y0 + phi.y[i]
 
-#Observation error on X1
+#Observation error on X
 W[i,1] ~ dnorm(X[i], prec.w1)  #Replicate 1, Target 1
 W[i,3] ~ dnorm(X[i], prec.w1)  #Replicate 2, Target 1
 W[i,2] ~ dnorm(X[i], prec.w1)  #Replicate 1, Target 2
@@ -23,14 +23,14 @@ phi.x0 ~ dnorm(0.00, 0.0001)
 
 #precision on observation of viral RNA
 prec.w1 <- 1/sdW^2
-sdW ~dunif(0,100)
+sdW ~ dunif(0,100)
 
 #2nd order RW for X and Y
-phi.x[1]~ dnorm(0, 0.0001)
-phi.x[2]~ dnorm(0, 0.0001)
+phi.x[1] ~ dnorm(0.00, tau.rw.x)
+phi.x[2] ~ dnorm(0.00, tau.rw.x)
 
-phi.y[1]~ dnorm(0, 0.0001)
-phi.y[2]~ dnorm(0, 0.0001)
+phi.y[1] ~ dnorm(0.00, tau.rw.y)
+phi.y[2] ~ dnorm(0.00, tau.rw.y)
 
 for(g in 3:n.times){
   phi.x[g]~ dnorm(2*phi.x[g-1] - phi.x[g-2], tau.rw.x)
@@ -40,8 +40,8 @@ for(g in 3:n.times){
 tau.rw.x <- 1/sd.rw.x^2
 tau.rw.y <- 1/sd.rw.y^2
 
-sd.rw.x ~ dunif(0,100)
-sd.rw.y ~ dunif(0,100)
+sd.rw.x ~ dunif(0, 100)
+sd.rw.y ~ dunif(0, 100)
 
 deriv.x[1] <-0
 deriv.y[1] <-0
