@@ -15,9 +15,11 @@ library(reshape2)
 library(HDInterval)
 library(rjags)
 library(xtable)
+library(sas7bdat)
 
 source('./Models/mod1.deriv.ar1.R')
 source('./Models/mod2.dist.lag.alt2.R')
+
 
 ```
 
@@ -28,19 +30,48 @@ The original pre-print included a correlation of smoothed versions of the viral 
 ```{r, eval=F, include=F}
 ## Combine data (only need to do this once)
 
-ds1 <- read_excel('./raw RNA data.xlsx')
+ds1 <- read_excel('./Data/raw RNA data.xlsx')
 ds1.m <- melt(ds1, id.vars='DATE')
 names(ds1.m) <- c('date', 'test','conc')
 
-ds2 <- read_excel('./epi.data.xlsx')
 
-ds3 <- merge(ds2, ds1.m, by='date', all=T)
+
+ds2 <- read.sas7bdat('./Data/dw1stpostest.sas7bdat')
+ds2$date <-format(as.Date(ds2$newspecdate, origin="1960-01-01"),"%Y-%m-%d")
+
+tests <- read.sas7bdat('./Data/dw1stcovtest.sas7bdat')
+tests$date <-format(as.Date(tests$newspecdate, origin="1960-01-01"),"%Y-%m-%d")
+
+
+ds2.nh <- ds2[ds2$OfficialCity %in% c('NEW HAVEN', 'EAST HAVEN','HAMDEN', 'WOODBRIDGE'),]
+ds2.nh$cases <-1
+ds2.nh.agg <- aggregate(ds2.nh[,'cases', drop=F],by=list('date'=ds2.nh$date), FUN=sum)
+ds2.nh.agg$date <- as.Date(ds2.nh.agg$date)
+
+tests.nh <- tests[tests$OfficialCity %in% c('NEW HAVEN', 'EAST HAVEN','HAMDEN', 'WOODBRIDGE'),]
+tests.nh$cov.tests <-1
+tests.nh.agg <- aggregate(tests.nh[,'cov.tests', drop=F],by=list('date'=tests.nh$date), FUN=sum)
+tests.nh.agg$date <- as.Date(tests.nh.agg$date)
+
+
+ds.hosp <- read_excel('./Data/epi.data.xlsx')
+ds.hosp$date <- as.Date(ds.hosp$date)
+ds1.m$date <- as.Date(ds1.m$date)
+
+ds3 <- merge(ds2.nh.agg, ds1.m, by='date', all=T)
+ds3 <- merge(ds3, tests.nh.agg, by='date', all=T)
+ds3 <- merge(ds3, ds.hosp, by='date', all=T)
+ds3$prop.pos <- ds3$cases/ds3$cov.tests
+#plot(ds3$cases)
+#points(ds3$new.cases)
+
 ds3$conc <- as.numeric(ds3$conc)
 ds3$target <- 'n1'
 ds3$target[grep('n1', ds3$test)] <- 'n2'
 
-write.csv(ds3,'./combined.data.csv')
+write.csv(ds3,'./Data/combined.data.csv')
 ```
+
 
 ```{r}
 ## read in combined data
@@ -53,11 +84,16 @@ ds3$date <- as.Date(ds3$date)
 ## Plots of raw data
 
 This shows that one of the PCR targets is consistently higher than the other--will need to adjust for this in the model
-```{r}
+```{r, fig.width=4, fig.height=9}
+par(mfrow=c(3,1))
 plot(ds3$date, ds3$hospt_admit, type='l', bty='l', main='Hospitalizations')
-plot(ds3$date, ds3$new.cases, type='l', main='New reported cases')
 
-plot(ds3$date, ds3$conc, main='Viral RNA in Sewage', col=as.factor(ds3$target), xlab='Date', ylab='Concentration')
+# plot(ds3$date, ds3$new.cases, type='l', main='New reported cases')
+
+plot(ds3$date, ds3$prop.pos, main='Proportion of human tests positive', xlab='Date', ylab='Proportion positive', bty='l')
+
+plot(ds3$date, log(ds3$conc), main='Viral RNA in Sewage', col=as.factor(ds3$target), xlab='Date', ylab='Log Concentration')
+
 ```
 
 
@@ -83,12 +119,14 @@ Y1[is.nan(Y1)] <-NA
 
 W1.scale <- apply(W1,2,scale)
 
+log.offset.y1 <- rep(0, length(Y1))
+
 ```
 
 ## Model hospitalizations as a function of lags of viral RNA in sewage
 
 ```{r}
-mod2 <- mod2.func(W=W1.scale, Y=Y1)
+mod2 <- mod2.func(W=W1.scale, Y=Y1,log.offset=log.offset.y1)
 
 
 ```
@@ -144,9 +182,9 @@ mod1 <- mod1.func(Y=Y1, W=scale.W1)
 ```{r, fig.width=4, fig.height=6, include=T}
 par(mfrow=c(2,1), mar=c(2,4,1,1))
 t <- 1:nrow(mod1$X1)
-ylim1 <- range(c(exp(mod1$X1),(scale.W1)), na.rm=T)
-matplot(t, exp(mod1$X1), col='blue', main='Smoothed Viral concentration', type='l',lty=c(1,2,2), bty='l', ylim=ylim1, ylab='Viral concentration')
-matplot(exp(scale.W1), add=T, type='p')
+ylim1 <- range(c((mod1$X1),(scale.W1)), na.rm=T)
+matplot(t, (mod1$X1), col='blue', main='Smoothed Viral concentration', type='l',lty=c(1,2,2), bty='l', ylim=ylim1, ylab='Logged and scaled Viral concentration')
+matplot((scale.W1), add=T, type='p')
 
 ylim2 <- range(c((mod1$lambda),Y1), na.rm=T)
 matplot(t , (mod1$lambda), col='red', main='Smoothed Hospitalizations', type='l',lty=c(1,2,2), bty='l', ylim=ylim2)
@@ -156,16 +194,13 @@ matplot(Y1, add=T, type='p')
 
 
 ## Association of viral load with new cases. 
-Seem to be some convergence issues with this model that need to be resolved, possibly due to missing cases data
-
-```{r, eval=F}
-## Evaluate correlation between viral rna in sewage and new reported cases
+Seem to be some convergence issues with this model that need to be resolved, possibly due to missing case data at the start of the time series
 
 ```{r, eval=T}
 
 #Note data on new cases are missing
 #ds.mod.m <- melt(ds.mod[!is.na(ds.mod$new.cases),c('date','test','log.conc','new.cases')], id.vars=c('date', 'test'))
-ds.mod.m <- melt(ds.mod[,c('date','test','log.conc','new.cases')], id.vars=c('date', 'test'))
+ds.mod.m <- melt(ds.mod[,c('date','test','log.conc','cases', 'cov.tests')], id.vars=c('date', 'test'))
 ds.mod.c <- dcast(ds.mod.m, date~variable+test, fun.aggregate = mean)
 W2 <- ds.mod.c[, grep('log.conc', names(ds.mod.c))] 
 W2 <- apply(W2, 2, function(x){
@@ -173,21 +208,25 @@ W2 <- apply(W2, 2, function(x){
   return(x)
 } )
 scale.W2 <- apply(W2, 2, scale)
-Y2 <- ds.mod.c[,'new.cases_rep1_n1']
+Y2 <- ds.mod.c[,'cases_rep1_n1']
 Y2[is.nan(Y2)] <-NA
 
+log.offset2 <- log(ds.mod.c[,'cov.tests_rep1_n1'])
+log.offset2[is.nan(log.offset2)] <-NA
+log.offset2[is.na(log.offset2)] <-0
 W2.scale <- apply(W2,2, scale)
+
 ```
 
-```{r, eval=F}
-mod2 <- mod2.func(W=W2.scale, Y=Y2)
+```{r, eval=T}
+mod2 <- mod2.func(W=W2.scale, log.offset=log.offset2,Y=Y2)
 
 
 ```
 
 ### Distributed lags for the association between viral RNA in sewage and COVID hospitalizations. This shows that lags longer lags are associated with cases time series (on the cumualative plot) +/-90% Credible Intervals.
 
-```{r, eval=F}
+```{r, eval=T}
 
 yrange <- range(mod2$beta1)
 plot(0:7, mod2$beta1$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)' , pch=16)
@@ -196,7 +235,7 @@ abline(h=0)
 ```
 
 
-```{r, eval=F}
+```{r, eval=T}
 #Cumulative relationship between viral RNA in sewage and new cases. This shows that lags of sewage data of 3-7 days together best correlate with the hospitalization time series. +/-90% Credible Intervals.
 
 yrange <- range(mod2$beta1.cum)
@@ -204,6 +243,14 @@ plot(0:7, mod2$beta1.cum$post_means, ylim=yrange, bty='l', ylab='Cumulative beta
 arrows(x0=0:7, y0=mod2$beta1.cum$lower, y1=mod2$beta1.cum$upper, length=0)
 abline(h=0)
 ```
+
+```{r}
+lambda.prop <- apply(mod2$lambda,2,function(x) x/exp(log.offset2[-c(1:7)]))
+matplot(lambda.prop, type='l')
+
+#matplot(exp(mod2$X[-c(1:7),]), type='l')
+```
+
 ### Beta coefficients for viral RNA concentration in sewage at each lag, as a correlate of new cases
 
 ```{r, echo=F, eval=T}
