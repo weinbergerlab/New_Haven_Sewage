@@ -52,7 +52,7 @@ sdW ~dunif(0,100)
 prec.beta <- 1/sd.beta^2
 sd.beta ~ dunif(0,100)
 
-# AR(1) for X and y
+#RW for X, AR(1) y
 phi.x[1] ~ dnorm(0.00, tau.rw.x)
 phi.y[1] ~ dnorm(0.00, tau.rw.y)
 
@@ -61,7 +61,6 @@ for(g in 2:(n.times)){
   phi.y[g] ~ dnorm(rho.y*phi.y[g-1] , tau.rw.y)
 }
 
-#rho.x~dunif(0,1)
 rho.y~dunif(0,1)
 
 tau.rw.x <- 1/sd.rw.x^2
