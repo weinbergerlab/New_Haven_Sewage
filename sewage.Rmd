@@ -44,8 +44,8 @@ tests$date <-format(as.Date(tests$newspecdate, origin="1960-01-01"),"%Y-%m-%d")
 
 
 ds2.nh <- ds2[ds2$OfficialCity %in% c('NEW HAVEN', 'EAST HAVEN','HAMDEN', 'WOODBRIDGE'),]
-ds2.nh$cases <-1
-ds2.nh.agg <- aggregate(ds2.nh[,'cases', drop=F],by=list('date'=ds2.nh$date), FUN=sum)
+ds2.nh$pos.tests <-1
+ds2.nh.agg <- aggregate(ds2.nh[,'pos.tests', drop=F],by=list('date'=ds2.nh$date), FUN=sum)
 ds2.nh.agg$date <- as.Date(ds2.nh.agg$date)
 
 tests.nh <- tests[tests$OfficialCity %in% c('NEW HAVEN', 'EAST HAVEN','HAMDEN', 'WOODBRIDGE'),]
@@ -61,9 +61,9 @@ ds1.m$date <- as.Date(ds1.m$date)
 ds3 <- merge(ds2.nh.agg, ds1.m, by='date', all=T)
 ds3 <- merge(ds3, tests.nh.agg, by='date', all=T)
 ds3 <- merge(ds3, ds.hosp, by='date', all=T)
-ds3$prop.pos <- ds3$cases/ds3$cov.tests
-#plot(ds3$cases)
-#points(ds3$new.cases)
+ds3$prop.pos <- ds3$pos.tests/ds3$cov.tests
+#plot(ds3$pos.tests)
+#points(ds3$new.pos.tests)
 
 ds3$conc <- as.numeric(ds3$conc)
 ds3$target <- 'n1'
@@ -71,6 +71,9 @@ ds3$target[grep('n1', ds3$test)] <- 'n2'
 
 write.csv(ds3,'./Data/combined.data.csv')
 ```
+
+
+
 
 
 ```{r}
@@ -84,15 +87,39 @@ ds3$date <- as.Date(ds3$date)
 ## Plots of raw data
 
 This shows that one of the PCR targets is consistently higher than the other--will need to adjust for this in the model
-```{r, fig.width=4, fig.height=9}
-par(mfrow=c(3,1))
-plot(ds3$date, ds3$hospt_admit, type='l', bty='l', main='Hospitalizations')
+```{r, fig.width=8, fig.height=13}
+par(mfrow=c(4,2))
+plot(ds3$date, (ds3$hospt_admit), type='l', bty='l', main='Hospitalizations')
+abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-14','2020-04-21','2020-04-28')), lty=2, col='gray')
+
+plot(ds3$date, log(ds3$hospt_admit), type='l', bty='l', main='Log Hospitalizations')
+abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-14','2020-04-21','2020-04-28')), lty=2, col='gray')
+
 
 # plot(ds3$date, ds3$new.cases, type='l', main='New reported cases')
 
-plot(ds3$date, ds3$prop.pos, main='Proportion of human tests positive', xlab='Date', ylab='Proportion positive', bty='l')
+plot(ds3$date, (ds3$prop.pos), main='Proportion of human tests positive', xlab='Date', ylab='Proportion positive', bty='l')
+abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-14','2020-04-21','2020-04-28')), lty=2, col='gray')
+
+plot(ds3$date, log(ds3$prop.pos/(1-ds3$prop.pos)), main='Logit(Proportion of human tests positive)', xlab='Date', ylab='Proportion positive', bty='l')
+abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-14','2020-04-21','2020-04-28')), lty=2, col='gray')
+
+
+
+plot(ds3$date, (ds3$new.cases), main='New cases', col=as.factor(ds3$target), xlab='Date', ylab='Log Concentration')
+abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-14','2020-04-21','2020-04-28')), lty=2, col='gray')
+
+
+plot(ds3$date, log(ds3$new.cases), main='log-New cases', col=as.factor(ds3$target), xlab='Date', ylab='Log Concentration')
+abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-14','2020-04-21','2020-04-28')), lty=2, col='gray')
+
+plot(ds3$date, (ds3$conc), main='Viral RNA in Sewage', col=as.factor(ds3$target), xlab='Date', ylab=' Concentration')
+abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-14','2020-04-21','2020-04-28')), lty=2, col='gray')
+
 
 plot(ds3$date, log(ds3$conc), main='Viral RNA in Sewage', col=as.factor(ds3$target), xlab='Date', ylab='Log Concentration')
+abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-14','2020-04-21','2020-04-28')), lty=2, col='gray')
+
 
 ```
 
@@ -200,7 +227,7 @@ Seem to be some convergence issues with this model that need to be resolved, pos
 
 #Note data on new cases are missing
 #ds.mod.m <- melt(ds.mod[!is.na(ds.mod$new.cases),c('date','test','log.conc','new.cases')], id.vars=c('date', 'test'))
-ds.mod.m <- melt(ds.mod[,c('date','test','log.conc','cases', 'cov.tests')], id.vars=c('date', 'test'))
+ds.mod.m <- melt(ds.mod[,c('date','test','log.conc','pos.tests', 'cov.tests')], id.vars=c('date', 'test'))
 ds.mod.c <- dcast(ds.mod.m, date~variable+test, fun.aggregate = mean)
 W2 <- ds.mod.c[, grep('log.conc', names(ds.mod.c))] 
 W2 <- apply(W2, 2, function(x){
@@ -208,7 +235,7 @@ W2 <- apply(W2, 2, function(x){
   return(x)
 } )
 scale.W2 <- apply(W2, 2, scale)
-Y2 <- ds.mod.c[,'cases_rep1_n1']
+Y2 <- ds.mod.c[,'pos.tests_rep1_n1']
 Y2[is.nan(Y2)] <-NA
 
 log.offset2 <- log(ds.mod.c[,'cov.tests_rep1_n1'])

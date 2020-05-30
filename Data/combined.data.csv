@@ -1,4 +1,4 @@
-"","date","cases","test","conc","cov.tests","new.cases","hospt_admit","prop.pos","target"
+"","date","pos.tests","test","conc","cov.tests","new.cases","hospt_admit","prop.pos","target"
 "1",2020-03-02,NA,NA,NA,1,NA,NA,NA,"n1"
 "2",2020-03-08,NA,NA,NA,1,NA,NA,NA,"n1"
 "3",2020-03-09,NA,NA,NA,1,NA,NA,NA,"n1"
