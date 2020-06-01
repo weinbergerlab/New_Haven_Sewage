@@ -16,16 +16,18 @@ library(HDInterval)
 library(rjags)
 library(xtable)
 library(sas7bdat)
+library(pbapply)
 
 source('./Models/mod1.deriv.ar1.R')
 source('./Models/mod2.dist.lag.alt2.R')
+source('./Models/mod2.indiv.lags.R')
 
 
 ```
 
 ## Overview
-This is a reanalysis of data examining increases in SARS-CoV-2 RNA concentrations in primary sewage sludge in relation to COVID-19 hospitalizations and cases. The original preprint, led by Jordan Peccia, et al can be found here: https://www.medrxiv.org/content/10.1101/2020.05.19.20105999v1 
-The original pre-print included a correlation of smoothed versions of the viral RNA data and the epidemiological indicators. This ignores the uncertainty in both the X and Y variable. In the analyses presented here, we use an error-in-variables time series model to get an estimate of the underlying viral dynamics in sewage and the relationship of this with hospitalizations. This analysis is carried out in the Bayesian framework, allowing us to correctly quantify uncertainty in the estimated associations. The re-analysis was performed by Dan Weinberger (Epidemiology of Microbial Diseases, Yale School of Public Health), with input from Josh Warren (Biostatistics, Yale School of Public Health).
+These are additional analyses of data examining increases in SARS-CoV-2 RNA concentrations in primary sewage sludge in relation to COVID-19 hospitalizations and cases. The original preprint, led by Jordan Peccia, et al can be found here: https://www.medrxiv.org/content/10.1101/2020.05.19.20105999v1 
+The original pre-print included a correlation of smoothed versions of the viral RNA data and the epidemiological indicators. In the analyses presented here, we use an error-in-variables time series model to get an estimate of the underlying viral dynamics in sewage and the relationship of this with hospitalizations. This analysis is carried out in the Bayesian framework, allowing us to correctly quantify uncertainty in the estimated associations. These additional analyses were performed by Dan Weinberger (Epidemiology of Microbial Diseases, Yale School of Public Health), with input from Josh Warren (Biostatistics, Yale School of Public Health) and the rest of the original study team.
 
 ```{r, eval=F, include=F}
 ## Combine data (only need to do this once)
@@ -123,6 +125,14 @@ abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-
 
 ```
 
+```{r}
+ds3$dow <- weekdays(ds3$date)
+plot(ds3$date,ds3$new.cases, col=as.factor(ds3$dow))
+points(ds3$date,ds3$new.cases, type='l')
+
+```
+
+
 
 ```{r}
 ## Prepare data for JAGS
@@ -150,7 +160,111 @@ log.offset.y1 <- rep(0, length(Y1))
 
 ```
 
-## Model hospitalizations as a function of lags of viral RNA in sewage
+### Association of sewage viral concentration at different lags with hospitalizations 
+
+Test lags of 0-7 days, one at a time.
+
+```{r}
+mods.hosp <- pblapply(c(0:7), function(zz) mod2.indiv.lag.func( Y=Y1, log.offset=log.offset.y1, W=W1.scale, lag.n=zz))
+```
+
+```{r}
+#Extract the betas
+beta.hospt <- lapply(mods.hosp,'[[','beta1')
+beta.hospt <- do.call('rbind.data.frame',beta.hospt)
+
+yrange <- range(beta.hospt)
+plot(0:7, beta.hospt[,"post_means"], ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
+arrows(x0=0:7, y0=beta.hospt[,"lower"], y1=beta.hospt[,"upper"], length=0)
+abline(h=0)
+```
+
+
+
+### Association of sewage viral concentration at different lags with new cases (defined by date of test)
+
+```{r, eval=T}
+
+#Note data on new cases are missing
+#ds.mod.m <- melt(ds.mod[!is.na(ds.mod$new.cases),c('date','test','log.conc','new.cases')], id.vars=c('date', 'test'))
+ds.mod.m <- melt(ds.mod[,c('date','test','log.conc','pos.tests', 'cov.tests')], id.vars=c('date', 'test'))
+ds.mod.c <- dcast(ds.mod.m, date~variable+test, fun.aggregate = mean)
+W2 <- ds.mod.c[, grep('log.conc', names(ds.mod.c))] 
+W2 <- apply(W2, 2, function(x){
+  x[is.nan(x)] <-NA
+  return(x)
+} )
+scale.W2 <- apply(W2, 2, scale)
+Y2 <- ds.mod.c[,'pos.tests_rep1_n1']
+Y2[is.nan(Y2)] <-NA
+
+log.offset2 <- log(ds.mod.c[,'cov.tests_rep1_n1'])
+log.offset2[is.nan(log.offset2)] <-NA
+log.offset2[is.na(log.offset2)] <-0
+W2.scale <- apply(W2,2, scale)
+
+```
+
+```{r, eval=T}
+mods.cases.dx <- pblapply(c(0:7), function(zz) mod2.indiv.lag.func( Y=Y2, log.offset=log.offset2, W=W2.scale, lag.n=zz))
+
+```
+
+```{r}
+#Extract the betas
+beta.hospt <- lapply(mods.cases.dx,'[[','beta1')
+beta.hospt <- do.call('rbind.data.frame',beta.hospt)
+
+yrange <- range(beta.hospt)
+plot(0:7, beta.hospt[,"post_means"], ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
+arrows(x0=0:7, y0=beta.hospt[,"lower"], y1=beta.hospt[,"upper"], length=0)
+abline(h=0)
+```
+
+### Association of sewage viral concentration at different lags with new cases (defined by date of report)
+
+```{r, eval=T}
+
+#Note data on new cases are missing
+ds.mod.m <- melt(ds.mod[,c('date','test','log.conc','new.cases')], id.vars=c('date', 'test'))
+ds.mod.c <- dcast(ds.mod.m, date~variable+test, fun.aggregate = mean)
+W3 <- ds.mod.c[, grep('log.conc', names(ds.mod.c))] 
+W3 <- apply(W3, 2, function(x){
+  x[is.nan(x)] <-NA
+  return(x)
+} )
+Y3 <- ds.mod.c[,'new.cases_rep1_n1']
+Y3[is.nan(Y3)] <-NA
+
+log.offset3 <- rep(1, length(Y3))
+W3.scale <- apply(W3,2, scale)
+
+```
+
+```{r, eval=T}
+mods.cases.rep <- pblapply(c(0:7), function(zz) mod2.indiv.lag.func( Y=Y3, log.offset=log.offset3, W=W3.scale, lag.n=zz))
+
+```
+
+```{r}
+#Extract the betas
+beta.rep <- lapply(mods.cases.rep,'[[','beta1')
+beta.rep <- do.call('rbind.data.frame',beta.rep)
+
+yrange <- range(beta.rep)
+plot(0:7, beta.rep[,"post_means"], ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
+arrows(x0=0:7, y0=beta.rep[,"lower"], y1=beta.rep[,"upper"], length=0)
+abline(h=0)
+```
+```{r}
+rw.x.rep <- lapply(mods.cases.rep,'[[','delta.dow')
+
+matplot(rw.x.rep[[1]], type='l')
+#matplot(W3.scale, add=T)
+```
+
+
+## Instead, use distributed lags framework
 
 ```{r}
 mod2 <- mod2.func(W=W1.scale, Y=Y1,log.offset=log.offset.y1)
@@ -158,7 +272,7 @@ mod2 <- mod2.func(W=W1.scale, Y=Y1,log.offset=log.offset.y1)
 
 ```
 
-Distributed lags for the association betwene viral RNA in sewage and COVID hospitalizations. This shows that lags of 1-4 days are associated with hospitalization. +/-90% Credible Intervals.
+Distributed lags for the association between viral RNA in sewage and COVID hospitalizations. This shows that lags of 1-4 days are associated with hospitalization. +/-90% Credible Intervals.
 
 ```{r}
 yrange <- range(mod2$beta1)
