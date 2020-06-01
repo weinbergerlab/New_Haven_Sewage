@@ -3,7 +3,10 @@ title: "sewage"
 author: "Dan Weinberger"
 date: "5/26/2020"
 output:
-  html_document: default
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
   pdf_document: default
 ---
 
@@ -108,30 +111,22 @@ abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-
 
 
 
-plot(ds3$date, (ds3$new.cases), main='New cases', col=as.factor(ds3$target), xlab='Date', ylab='Log Concentration')
+plot(ds3$date, (ds3$new.cases), main='New cases', col=as.factor(ds3$target), xlab='Date', ylab='Log Concentration', bty='l')
 abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-14','2020-04-21','2020-04-28')), lty=2, col='gray')
 
 
-plot(ds3$date, log(ds3$new.cases), main='log-New cases', col=as.factor(ds3$target), xlab='Date', ylab='Log Concentration')
+plot(ds3$date, log(ds3$new.cases), main='log-New cases', col=as.factor(ds3$target), xlab='Date', ylab='Log Concentration', bty='l')
 abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-14','2020-04-21','2020-04-28')), lty=2, col='gray')
 
-plot(ds3$date, (ds3$conc), main='Viral RNA in Sewage', col=as.factor(ds3$target), xlab='Date', ylab=' Concentration')
+plot(ds3$date, (ds3$conc), main='Viral RNA in Sewage', col=as.factor(ds3$target), xlab='Date', ylab=' Concentration', bty='l')
 abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-14','2020-04-21','2020-04-28')), lty=2, col='gray')
 
 
-plot(ds3$date, log(ds3$conc), main='Viral RNA in Sewage', col=as.factor(ds3$target), xlab='Date', ylab='Log Concentration')
+plot(ds3$date, log(ds3$conc), main='Viral RNA in Sewage', col=as.factor(ds3$target), xlab='Date', ylab='Log Concentration', bty='l')
 abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-14','2020-04-21','2020-04-28')), lty=2, col='gray')
 
 
 ```
-
-```{r}
-ds3$dow <- weekdays(ds3$date)
-plot(ds3$date,ds3$new.cases, col=as.factor(ds3$dow))
-points(ds3$date,ds3$new.cases, type='l')
-
-```
-
 
 
 ```{r}
@@ -160,23 +155,27 @@ log.offset.y1 <- rep(0, length(Y1))
 
 ```
 
+## Association between sewage concentration and epidemiological indicators
+-We evaluate three epidemiological time series: COVID-19 hospitalizations, proportion of tests that are positive for coronavirus (based on date of test), and number of cases of covid-19 (based on date of report). 
+
 ### Association of sewage viral concentration at different lags with hospitalizations 
 
 Test lags of 0-7 days, one at a time.
 
-```{r}
+```{r, include=F}
 mods.hosp <- pblapply(c(0:7), function(zz) mod2.indiv.lag.func( Y=Y1, log.offset=log.offset.y1, W=W1.scale, lag.n=zz))
 ```
+Rate ratio (+/- 90% Credible intervals)  showing the relative increase in positive tests associated with a 1-log increase of sewage RNA concentration at various lags (based on date of test). This shows the strongest association with a lag of 1 day (sewage increases firts, then hospitalizations a day later), with the effect trailing off with longer or shorter lags.
 
 ```{r}
 #Extract the betas
 beta.hospt <- lapply(mods.hosp,'[[','beta1')
 beta.hospt <- do.call('rbind.data.frame',beta.hospt)
-
-yrange <- range(beta.hospt)
-plot(0:7, beta.hospt[,"post_means"], ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
-arrows(x0=0:7, y0=beta.hospt[,"lower"], y1=beta.hospt[,"upper"], length=0)
-abline(h=0)
+irr.hospt <- exp(beta.hospt)
+yrange <- range(irr.hospt)
+plot(0:7, irr.hospt[,"post_means"], ylim=yrange, bty='l', ylab='Rate ratio', xlab='Lag (days)' , pch=16)
+arrows(x0=0:7, y0=irr.hospt[,"lower"], y1=irr.hospt[,"upper"], length=0)
+abline(h=1, lty=2, col='gray')
 ```
 
 
@@ -205,20 +204,22 @@ W2.scale <- apply(W2,2, scale)
 
 ```
 
-```{r, eval=T}
+```{r, eval=T, include=F}
 mods.cases.dx <- pblapply(c(0:7), function(zz) mod2.indiv.lag.func( Y=Y2, log.offset=log.offset2, W=W2.scale, lag.n=zz))
 
 ```
+Rate ratio (+/- 90% Credible) showing the relative increase in positive tests associated with a 1-log increase of sewage RNA concentration at various lags (based on date of test). This shows the strongest association with a lag of 4 days (sewage increases first, then proportion of tests that were positive 4 days later), with uncertainty in the estimates and in the length of the lag. 
 
 ```{r}
 #Extract the betas
-beta.hospt <- lapply(mods.cases.dx,'[[','beta1')
-beta.hospt <- do.call('rbind.data.frame',beta.hospt)
+beta.dx <- lapply(mods.cases.dx,'[[','beta1')
+beta.dx <- do.call('rbind.data.frame',beta.dx)
+irr.dx <- exp(beta.dx)
 
-yrange <- range(beta.hospt)
-plot(0:7, beta.hospt[,"post_means"], ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
-arrows(x0=0:7, y0=beta.hospt[,"lower"], y1=beta.hospt[,"upper"], length=0)
-abline(h=0)
+yrange <- range(irr.dx)
+plot(0:7, irr.dx[,"post_means"], ylim=yrange, bty='l', ylab='Rate ratio', xlab='Lag (days)' , pch=16)
+arrows(x0=0:7, y0=irr.dx[,"lower"], y1=irr.dx[,"upper"], length=0)
+abline(h=1, lty=2, col='gray')
 ```
 
 ### Association of sewage viral concentration at different lags with new cases (defined by date of report)
@@ -241,22 +242,34 @@ W3.scale <- apply(W3,2, scale)
 
 ```
 
-```{r, eval=T}
+
+```{r, eval=T, include=F}
 mods.cases.rep <- pblapply(c(0:7), function(zz) mod2.indiv.lag.func( Y=Y3, log.offset=log.offset3, W=W3.scale, lag.n=zz))
 
 ```
-
+Rate ratio (+/- 90% Credible intervals) showing the relative increase in reported cases associated with a 1-log increase of sewage RNA concentration at various lags. This shows the strongest association with a lag of 1, 4, or 6 days (sewage increases first, then proportion of tests that were positive 1,4,or 6 days later), with considerable uncertainty in the estimates and in the length of the lag.
 ```{r}
 #Extract the betas
 beta.rep <- lapply(mods.cases.rep,'[[','beta1')
 beta.rep <- do.call('rbind.data.frame',beta.rep)
+irr.rep <- exp(beta.rep)
 
-yrange <- range(beta.rep)
-plot(0:7, beta.rep[,"post_means"], ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
-arrows(x0=0:7, y0=beta.rep[,"lower"], y1=beta.rep[,"upper"], length=0)
-abline(h=0)
+yrange <- range(irr.rep)
+plot(0:7, (irr.rep[,"post_means"]), ylim=yrange, bty='l', ylab='Rate ratio', xlab='Lag (days)' , pch=16)
+arrows(x0=0:7, y0=irr.rep[,"lower"], y1=irr.rep[,"upper"], length=0)
+abline(h=1, lty=2, col='gray')
 ```
-```{r}
+
+The association with cases, based on date of report, is less clean than the associations based on other outcomes. For example, the time series of proportion of tests that is positive is implicitly adjusted for variations in testing over time. The data on reported cases, however, is potentially subject to day-of-week effects and other reporting quirks. In this plot, the number of reported cases is colored based on the day of the week
+
+```{r, eval=T}
+ds3$dow <- weekdays(ds3$date)
+plot(ds3$date,ds3$new.cases, col=as.factor(ds3$dow))
+points(ds3$date,ds3$new.cases, type='l')
+
+```
+
+```{r, eval=F}
 rw.x.rep <- lapply(mods.cases.rep,'[[','delta.dow')
 
 matplot(rw.x.rep[[1]], type='l')
@@ -264,143 +277,6 @@ matplot(rw.x.rep[[1]], type='l')
 ```
 
 
-## Instead, use distributed lags framework
-
-```{r}
-mod2 <- mod2.func(W=W1.scale, Y=Y1,log.offset=log.offset.y1)
-
-
-```
-
-Distributed lags for the association between viral RNA in sewage and COVID hospitalizations. This shows that lags of 1-4 days are associated with hospitalization. +/-90% Credible Intervals.
-
-```{r}
-yrange <- range(mod2$beta1)
-plot(0:7, mod2$beta1$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)' , pch=16)
-arrows(x0=0:7, y0=mod2$beta1$lower, y1=mod2$beta1$upper, length=0)
-abline(h=0)
-```
-
-Cumulative relationship between viral RNA in sewage and hospital admissions. This shows that lags of sewage data of 1-4 days together best correlate with the hospitalization time series. +/-90% Credible Intervals.
-
-```{r}
-yrange <- range(mod2$beta1.cum)
-plot(0:7, mod2$beta1.cum$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)', pch=16 )
-arrows(x0=0:7, y0=mod2$beta1.cum$lower, y1=mod2$beta1.cum$upper, length=0)
-abline(h=0)
-```
-
-Beta coefficients for viral RNA concentration in sewage at each lag
-```{r, echo=F}
-beta.format <- paste0(round(mod2$beta1[,1],2), ', (' , round(mod2$beta1[,2],2) , ',' , round(mod2$beta1[,3],2), ')'   )
-
-beta.format<- cbind.data.frame('lag'=0:7, beta.format)
-beta.format
-```
-
-This shows the viral concentration as measured by qPCR, smoothed with a random walk model. Each dot represents a separate qPCR run. For each time point, there were two targets tested, and 2 replicates of each. One of the targets is consistently higher, and this is adjusted for in the model. Lags of the random walk trajectory are used in the distributed lags model of hospitalizations.
-
-```{r}
-times <- 1:nrow(mod2$X)
-yrange=range(c((W1.scale),(as.matrix(mod2$X ))), na.rm=T)
-plot(times, (mod2$X[,1]), type='l', bty='l', ylim=yrange, ylab='Scaled-log-Viral concentration', lwd=2)
-polygon(c(times, rev(times)),  c((mod2$X[,2]), rev((mod2$X[,3]))) ,col = rgb(0, 0, 1, alpha = 0.1), border = NA ) 
-
-matplot((W1.scale), add=T, type='p')
-
-
-```
-
-
-## Smoothed curves of hospitalization and qPCR data
-Note these are presented only for visualization purposes and are not used in the above analyses. Each curve is smoothed separately using an AR(1) random effect.
-```{r, include=F}
-## Smooth X and y separately
-#These plots use a random walk, order 2 to smooth the qPCR data and hospitalization data for visualization
-mod1 <- mod1.func(Y=Y1, W=scale.W1)
-```
-
-```{r, fig.width=4, fig.height=6, include=T}
-par(mfrow=c(2,1), mar=c(2,4,1,1))
-t <- 1:nrow(mod1$X1)
-ylim1 <- range(c((mod1$X1),(scale.W1)), na.rm=T)
-matplot(t, (mod1$X1), col='blue', main='Smoothed Viral concentration', type='l',lty=c(1,2,2), bty='l', ylim=ylim1, ylab='Logged and scaled Viral concentration')
-matplot((scale.W1), add=T, type='p')
-
-ylim2 <- range(c((mod1$lambda),Y1), na.rm=T)
-matplot(t , (mod1$lambda), col='red', main='Smoothed Hospitalizations', type='l',lty=c(1,2,2), bty='l', ylim=ylim2)
-matplot(Y1, add=T, type='p')
-
-```
-
-
-## Association of viral load with new cases. 
-Seem to be some convergence issues with this model that need to be resolved, possibly due to missing case data at the start of the time series
-
-```{r, eval=T}
-
-#Note data on new cases are missing
-#ds.mod.m <- melt(ds.mod[!is.na(ds.mod$new.cases),c('date','test','log.conc','new.cases')], id.vars=c('date', 'test'))
-ds.mod.m <- melt(ds.mod[,c('date','test','log.conc','pos.tests', 'cov.tests')], id.vars=c('date', 'test'))
-ds.mod.c <- dcast(ds.mod.m, date~variable+test, fun.aggregate = mean)
-W2 <- ds.mod.c[, grep('log.conc', names(ds.mod.c))] 
-W2 <- apply(W2, 2, function(x){
-  x[is.nan(x)] <-NA
-  return(x)
-} )
-scale.W2 <- apply(W2, 2, scale)
-Y2 <- ds.mod.c[,'pos.tests_rep1_n1']
-Y2[is.nan(Y2)] <-NA
-
-log.offset2 <- log(ds.mod.c[,'cov.tests_rep1_n1'])
-log.offset2[is.nan(log.offset2)] <-NA
-log.offset2[is.na(log.offset2)] <-0
-W2.scale <- apply(W2,2, scale)
-
-```
-
-```{r, eval=T}
-mod2 <- mod2.func(W=W2.scale, log.offset=log.offset2,Y=Y2)
-
-
-```
-
-### Distributed lags for the association between viral RNA in sewage and COVID hospitalizations. This shows that lags longer lags are associated with cases time series (on the cumualative plot) +/-90% Credible Intervals.
-
-```{r, eval=T}
-
-yrange <- range(mod2$beta1)
-plot(0:7, mod2$beta1$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)' , pch=16)
-arrows(x0=0:7, y0=mod2$beta1$lower, y1=mod2$beta1$upper, length=0)
-abline(h=0)
-```
-
-
-```{r, eval=T}
-#Cumulative relationship between viral RNA in sewage and new cases. This shows that lags of sewage data of 3-7 days together best correlate with the hospitalization time series. +/-90% Credible Intervals.
-
-yrange <- range(mod2$beta1.cum)
-plot(0:7, mod2$beta1.cum$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)', pch=16 )
-arrows(x0=0:7, y0=mod2$beta1.cum$lower, y1=mod2$beta1.cum$upper, length=0)
-abline(h=0)
-```
-
-```{r}
-lambda.prop <- apply(mod2$lambda,2,function(x) x/exp(log.offset2[-c(1:7)]))
-matplot(lambda.prop, type='l')
-
-#matplot(exp(mod2$X[-c(1:7),]), type='l')
-```
-
-### Beta coefficients for viral RNA concentration in sewage at each lag, as a correlate of new cases
-
-```{r, echo=F, eval=T}
-
-beta.format <- paste0(round(mod2$beta1[,1],2), ', (' , round(mod2$beta1[,2],2) , ',' , round(mod2$beta1[,3],2), ')'   )
-
-beta.format<- cbind.data.frame('lag'=0:7, beta.format)
-beta.format
-```
 
 
 
