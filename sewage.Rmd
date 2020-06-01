@@ -8,6 +8,8 @@ output:
     toc_depth: 3
     toc_float: true
   pdf_document: default
+params:
+  rerun_model: T
 ---
 
 ```{r setup, include=FALSE}
@@ -162,12 +164,15 @@ log.offset.y1 <- rep(0, length(Y1))
 
 Test lags of 0-7 days, one at a time.
 
-```{r, include=F}
+```{r, include=F, eval=params$rerun_model}
 mods.hosp <- pblapply(c(0:7), function(zz) mod2.indiv.lag.func( Y=Y1, log.offset=log.offset.y1, W=W1.scale, lag.n=zz))
+saveRDS(mods.hosp,'/results/mods.hosp.rds')
 ```
 Rate ratio (+/- 90% Credible intervals)  showing the relative increase in positive tests associated with a 1-log increase of sewage RNA concentration at various lags (based on date of test). This shows the strongest association with a lag of 1 day (sewage increases firts, then hospitalizations a day later), with the effect trailing off with longer or shorter lags.
 
 ```{r}
+mods.hosp <-
+  readRDS('/results/mods.hosp.rds')
 #Extract the betas
 beta.hospt <- lapply(mods.hosp,'[[','beta1')
 beta.hospt <- do.call('rbind.data.frame',beta.hospt)
@@ -204,13 +209,16 @@ W2.scale <- apply(W2,2, scale)
 
 ```
 
-```{r, eval=T, include=F}
+```{r, eval=T, include=F, eval=params$rerun_model}
 mods.cases.dx <- pblapply(c(0:7), function(zz) mod2.indiv.lag.func( Y=Y2, log.offset=log.offset2, W=W2.scale, lag.n=zz))
+saveRDS(mods.cases.dx,'/results/mods.cases.dx.rds')
 
 ```
 Rate ratio (+/- 90% Credible) showing the relative increase in positive tests associated with a 1-log increase of sewage RNA concentration at various lags (based on date of test). This shows the strongest association with a lag of 4 days (sewage increases first, then proportion of tests that were positive 4 days later), with uncertainty in the estimates and in the length of the lag. 
 
 ```{r}
+mods.cases.dx <-
+  readRDS('/results/mods.cases.dx.rds')
 #Extract the betas
 beta.dx <- lapply(mods.cases.dx,'[[','beta1')
 beta.dx <- do.call('rbind.data.frame',beta.dx)
@@ -243,12 +251,17 @@ W3.scale <- apply(W3,2, scale)
 ```
 
 
-```{r, eval=T, include=F}
+```{r, eval=T, include=F, eval=params$rerun_model}
 mods.cases.rep <- pblapply(c(0:7), function(zz) mod2.indiv.lag.func( Y=Y3, log.offset=log.offset3, W=W3.scale, lag.n=zz))
+saveRDS(mods.cases.rep,'/results/mods.cases.rep.rds')
 
 ```
+
 Rate ratio (+/- 90% Credible intervals) showing the relative increase in reported cases associated with a 1-log increase of sewage RNA concentration at various lags. This shows the strongest association with a lag of 1, 4, or 6 days (sewage increases first, then proportion of tests that were positive 1,4,or 6 days later), with considerable uncertainty in the estimates and in the length of the lag.
 ```{r}
+mods.cases.rep <-
+  readRDS('/results/mods.cases.rep.rds')
+
 #Extract the betas
 beta.rep <- lapply(mods.cases.rep,'[[','beta1')
 beta.rep <- do.call('rbind.data.frame',beta.rep)
