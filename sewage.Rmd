@@ -9,7 +9,7 @@ output:
     toc_float: true
   pdf_document: default
 params:
-  rerun_model: T
+  rerun_model: TRUE
 ---
 
 ```{r setup, include=FALSE}
