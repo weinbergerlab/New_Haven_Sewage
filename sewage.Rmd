@@ -169,7 +169,7 @@ log.offset.y1 <- rep(0, length(Y1))
 
 ```
 
-## Association between sewage concentration and epidemiological indicators
+## Association between sewage concentration and epidemiological indicators (Individual lags)
 -We evaluate three epidemiological time series: COVID-19 hospitalizations, proportion of tests that are positive for coronavirus (based on date of test), and number of cases of covid-19 (based on date of report). 
 -All of the plots show 98.75% credible intervals, which represent an alpha of 0.1, adjusted for multiple testing
 
@@ -296,7 +296,7 @@ points(ds3$date,ds3$new.cases, type='l')
 ```
 
 
-## Distributed lags
+## Association between sewage concentration and epidemiological indicators (Distributed lags)
 As an alternative, we can model the epidemiological time series as a distributed lag of the sewage data
 
 ```{r,eval=params$rerun_model, include=F}
@@ -316,7 +316,7 @@ arrows(x0=0:7, y0=mod2$beta1$lower, y1=mod2$beta1$upper, length=0)
 abline(h=0)
 ```
 
-Cumulative relationship between viral RNA in sewage and hospital admissions. This shows that lags of sewage data of 1-4 days together best correlate with the hospitalization time series. +/-90% Credible Intervals.
+Cumulative relationship between viral RNA in sewage and hospital admissions. This shows that lags of sewage data of 1-4 days together best correlate with the hospitalization time series (after 4 days, cumulative beta does not increase). +/-90% Credible Intervals.
 
 ```{r}
 yrange <- range(mod2$beta1.cum)
@@ -328,7 +328,6 @@ abline(h=0)
 
 ### Distributed lags for the association between viral RNA in sewage and proportion positive. 
 
-Seem to be some convergence issues with this model that need to be resolved, possibly due to missing case data at the start of the time series
 
 ```{r, eval=T}
 #Note data on new cases are missing
@@ -354,8 +353,7 @@ mod2 <- mod2.func(W=W2.scale, log.offset=log.offset2,Y=Y2)
 saveRDS(mod2, './results/dl.mod2.pct.pos.rds')
 ```
 
-### Distributed lags for the association between viral RNA in sewage and COVID hospitalizations. 
-This shows that lags longer lags are associated with cases time series (on the cumulative plot) +/-90% Credible Intervals. This is consistent with the plots of raw data 
+This shows that lags of 0-6 days are associated with cases time series (on the cumulative plot, beta does not increase after 6 days) +/-90% Credible Intervals. 
 
 ```{r, eval=T}
 mod2 <- readRDS('./results/dl.mod2.pct.pos.rds')
@@ -366,7 +364,7 @@ arrows(x0=0:7, y0=mod2$beta1$lower, y1=mod2$beta1$upper, length=0)
 abline(h=0)
 ```
 
-Cumulative relationship between viral RNA in sewage and new cases. This shows that lags of sewage data of 3-7 days together best correlate with the time series of proportion positive. +/-90% Credible Intervals.
+Cumulative relationship between viral RNA in sewage and new cases. +/-90% Credible Intervals.
 
 ```{r, eval=T}
 yrange <- range(mod2$beta1.cum)
@@ -382,6 +380,7 @@ mod3 <- mod2.func(W=W3.scale, log.offset=log.offset3,Y=Y3)
 mod3 <- saveRDS(mod3,'./results/dl.mod3.cases.rds')
 ```
 
+This shows that lags of sewage data at longer time lags (6-7 days) best correlate with the time series of reported cases, with considerable uncertainty in the estimates. +/-90% Credible Intervals.
 ```{r, eval=T}
 mod3 <- readRDS('./results/dl.mod3.cases.rds')
 
@@ -391,7 +390,7 @@ arrows(x0=0:7, y0=mod3$beta1$lower, y1=mod3$beta1$upper, length=0)
 abline(h=0)
 ```
 
-Cumulative relationship between viral RNA in sewage and new cases. This shows that lags of sewage data at longer time lags best correlate with the time series of reported cases, with considerable uncertainty in the estimates. +/-90% Credible Intervals.
+Cumulative relationship between viral RNA in sewage and new cases. This shows that lags of sewage data at longer time lags (6-7 days) best correlate with the time series of reported cases, with considerable uncertainty in the estimates. +/-90% Credible Intervals.
 ```{r, eval=T}
 yrange <- range(mod3$beta1.cum)
 plot(0:7, mod3$beta1.cum$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)', pch=16 )

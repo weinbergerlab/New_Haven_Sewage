@@ -2,17 +2,6 @@ mod2.indiv.lag.func<-function(W, Y, log.offset, lag.n=0) {
   mod2 <- "
   model{
 
-for(i in 1:(n.times)){
-
-#Observation error on X
-W[i,1] ~ dnorm(X[i], prec.w1)  #Replicate 1, Target 1
-W[i,3] ~ dnorm(X[i], prec.w1)  #Replicate 2, Target 1
-W[i,2] ~ dnorm(X[i], prec.w1)  #Replicate 1, Target 2
-W[i,4] ~ dnorm(X[i], prec.w1)  #Replicate 2, Target 2
-
-X[i] = phi.x0 + phi.x[i]   #X[i] is a RW1
-
-}
 
 phi.x0 ~ dnorm(0.00, 0.0001)
 
@@ -32,6 +21,7 @@ beta0 ~ dnorm(0.00, 0.0001)
  
 #Distributed lag parameters have a RW structure
 beta1 ~ dnorm(0.00, 0.0001)
+beta.w ~ dnorm(0.00, 0.0001)
 
 
 #precision on observation of viral RNA
@@ -40,11 +30,13 @@ sdW ~dunif(0,100)
 
 
 #RW for X, AR(1) y
-phi.x[1] ~ dnorm(0.00, tau.rw.x)
+for(g in 1:(n.times)){
+phi.x[g] ~ dnorm(0.00, 1e-4)
+}
+
 phi.y[1] ~ dnorm(0.00, tau.rw.y)
 
 for(g in 2:(n.times)){
-  phi.x[g] ~ dnorm(rho.x*phi.x[g-1] , tau.rw.x)
   phi.y[g] ~ dnorm(rho.y*phi.y[g-1] , tau.rw.y)
 }
 
@@ -74,11 +66,12 @@ inits3=list(".RNG.seed"=c(789), ".RNG.name"='base::Wichmann-Hill')
 #Model Organization
 ##############################################
 
+X = apply(W,1,mean, na.rm=T)
 model_spec<-textConnection(mod2)
 model_jags<-jags.model(model_spec, 
                        inits=list(inits1,inits2, inits3),
                        data=list('Y' = Y,
-                                 'W' = W,
+                                 'X' = X,
                                  'lag.n'=lag.n,
                                  'log.offset'=log.offset,
                                  'n.times'=(length(Y))),
