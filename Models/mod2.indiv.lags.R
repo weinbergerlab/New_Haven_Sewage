@@ -44,11 +44,12 @@ phi.x[1] ~ dnorm(0.00, tau.rw.x)
 phi.y[1] ~ dnorm(0.00, tau.rw.y)
 
 for(g in 2:(n.times)){
-  phi.x[g] ~ dnorm(phi.x[g-1] , tau.rw.x)
+  phi.x[g] ~ dnorm(rho.x*phi.x[g-1] , tau.rw.x)
   phi.y[g] ~ dnorm(rho.y*phi.y[g-1] , tau.rw.y)
 }
 
 rho.y~dunif(0,1)
+rho.x~dunif(0,1)
 
 tau.rw.x <- 1/sd.rw.x^2
 tau.rw.y <- 1/sd.rw.y^2
@@ -84,7 +85,7 @@ model_jags<-jags.model(model_spec,
                        n.adapt=10000, 
                        n.chains=3)
 
-params<-c('lambda','phi.x', 'beta1','X','delta.dow')
+params<-c('lambda','phi.x', 'beta1','X')
 
 ##############################################
 #Posterior Sampling
@@ -106,17 +107,13 @@ rw.x.index <- grep('phi.x', sample.labs)
 lambda.index <- grep('lambda', sample.labs)
 beta1.index <- grep('beta1', sample.labs, fixed=T)
 x.index <- grep('X', sample.labs)
-delta.dow.index <- grep('delta.dow', sample.labs)
-
-
 
 rw.x <- post.comb[rw.x.index,]
 lambda <- post.comb[lambda.index,]
 beta1 <- post.comb[beta1.index,]
 X <- post.comb[x.index,]
-delta.dow <- post.comb[delta.dow.index,]
 
-outlist.mod1 <- list('rw.x'=rw.x,'beta1'=beta1,'delta.dow'=delta.dow,'lambda'=lambda,'X'=X)
+outlist.mod1 <- list('rw.x'=rw.x,'beta1'=beta1,'lambda'=lambda,'X'=X)
 return(outlist.mod1)
 }
 
