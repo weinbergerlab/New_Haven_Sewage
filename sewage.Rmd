@@ -9,7 +9,7 @@ output:
     toc_float: true
   pdf_document: default
 params:
-  rerun_model: TRUE
+  rerun_model: FALSE
 ---
 
 ```{r setup, include=FALSE}
@@ -96,19 +96,19 @@ ds3$date <- as.Date(ds3$date)
 This shows that one of the PCR targets is consistently higher than the other--will need to adjust for this in the model
 ```{r, fig.width=8, fig.height=13}
 par(mfrow=c(4,2))
-plot(ds3$date, (ds3$hospt_admit), type='l', bty='l', main='Hospitalizations')
+plot(ds3$date, (ds3$hospt_admit), type='l', bty='l', main='Hospitalizations', ylab=('Log(Hospitalizations (N))'))
 abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-14','2020-04-21','2020-04-28')), lty=2, col='gray')
 
-plot(ds3$date, log(ds3$hospt_admit), type='l', bty='l', main='Log Hospitalizations')
+plot(ds3$date, log(ds3$hospt_admit), type='l', bty='l', main='Log Hospitalizations', ylab=('log(Hospitalizations (N))') )
 abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-14','2020-04-21','2020-04-28')), lty=2, col='gray')
 
 
 # plot(ds3$date, ds3$new.cases, type='l', main='New reported cases')
 
-plot(ds3$date, (ds3$prop.pos), main='Proportion of human tests positive', xlab='Date', ylab='Proportion positive', bty='l')
+plot(ds3$date, (ds3$prop.pos), main='Proportion of human tests positive', xlab='Date', ylab='Proportion positive', bty='l' )
 abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-14','2020-04-21','2020-04-28')), lty=2, col='gray')
 
-plot(ds3$date, log(ds3$prop.pos/(1-ds3$prop.pos)), main='Logit(Proportion of human tests positive)', xlab='Date', ylab='Proportion positive', bty='l')
+plot(ds3$date, log(ds3$prop.pos/(1-ds3$prop.pos)), main='Logit(Proportion of human tests positive)', xlab='Date', ylab='Logit Proportion positive', bty='l')
 abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-14','2020-04-21','2020-04-28')), lty=2, col='gray')
 
 
@@ -117,7 +117,7 @@ plot(ds3$date, (ds3$new.cases), main='New cases', col=as.factor(ds3$target), xla
 abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-14','2020-04-21','2020-04-28')), lty=2, col='gray')
 
 
-plot(ds3$date, log(ds3$new.cases), main='log-New cases', col=as.factor(ds3$target), xlab='Date', ylab='Log Concentration', bty='l')
+plot(ds3$date, log(ds3$new.cases), main='log(New cases)', col=as.factor(ds3$target), xlab='Date', ylab='Log Concentration', bty='l')
 abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-14','2020-04-21','2020-04-28')), lty=2, col='gray')
 
 plot(ds3$date, (ds3$conc), main='Viral RNA in Sewage', col=as.factor(ds3$target), xlab='Date', ylab=' Concentration', bty='l')
@@ -159,6 +159,7 @@ log.offset.y1 <- rep(0, length(Y1))
 
 ## Association between sewage concentration and epidemiological indicators
 -We evaluate three epidemiological time series: COVID-19 hospitalizations, proportion of tests that are positive for coronavirus (based on date of test), and number of cases of covid-19 (based on date of report). 
+-All of the plots show 98.75% credible intervals, which represent an alpha of 0.1, adjusted for multiple testing
 
 ### Association of sewage viral concentration at different lags with hospitalizations 
 
@@ -166,13 +167,13 @@ Test lags of 0-7 days, one at a time.
 
 ```{r, include=F, eval=params$rerun_model}
 mods.hosp <- pblapply(c(0:7), function(zz) mod2.indiv.lag.func( Y=Y1, log.offset=log.offset.y1, W=W1.scale, lag.n=zz))
-saveRDS(mods.hosp,'/results/mods.hosp.rds')
+saveRDS(mods.hosp,'./results/mods.hosp.rds')
 ```
 Rate ratio (+/- 90% Credible intervals)  showing the relative increase in positive tests associated with a 1-log increase of sewage RNA concentration at various lags (based on date of test). This shows the strongest association with a lag of 1 day (sewage increases firts, then hospitalizations a day later), with the effect trailing off with longer or shorter lags.
 
 ```{r}
 mods.hosp <-
-  readRDS('/results/mods.hosp.rds')
+  readRDS('./results/mods.hosp.rds')
 #Extract the betas
 beta.hospt <- lapply(mods.hosp,'[[','beta1')
 beta.hospt <- do.call('rbind.data.frame',beta.hospt)
@@ -211,14 +212,14 @@ W2.scale <- apply(W2,2, scale)
 
 ```{r, eval=T, include=F, eval=params$rerun_model}
 mods.cases.dx <- pblapply(c(0:7), function(zz) mod2.indiv.lag.func( Y=Y2, log.offset=log.offset2, W=W2.scale, lag.n=zz))
-saveRDS(mods.cases.dx,'/results/mods.cases.dx.rds')
+saveRDS(mods.cases.dx,'./results/mods.cases.dx.rds')
 
 ```
 Rate ratio (+/- 90% Credible) showing the relative increase in positive tests associated with a 1-log increase of sewage RNA concentration at various lags (based on date of test). This shows the strongest association with a lag of 4 days (sewage increases first, then proportion of tests that were positive 4 days later), with uncertainty in the estimates and in the length of the lag. 
 
 ```{r}
 mods.cases.dx <-
-  readRDS('/results/mods.cases.dx.rds')
+  readRDS('./results/mods.cases.dx.rds')
 #Extract the betas
 beta.dx <- lapply(mods.cases.dx,'[[','beta1')
 beta.dx <- do.call('rbind.data.frame',beta.dx)
@@ -253,14 +254,14 @@ W3.scale <- apply(W3,2, scale)
 
 ```{r, eval=T, include=F, eval=params$rerun_model}
 mods.cases.rep <- pblapply(c(0:7), function(zz) mod2.indiv.lag.func( Y=Y3, log.offset=log.offset3, W=W3.scale, lag.n=zz))
-saveRDS(mods.cases.rep,'/results/mods.cases.rep.rds')
+saveRDS(mods.cases.rep,'./results/mods.cases.rep.rds')
 
 ```
 
 Rate ratio (+/- 90% Credible intervals) showing the relative increase in reported cases associated with a 1-log increase of sewage RNA concentration at various lags. This shows the strongest association with a lag of 1, 4, or 6 days (sewage increases first, then proportion of tests that were positive 1,4,or 6 days later), with considerable uncertainty in the estimates and in the length of the lag.
 ```{r}
 mods.cases.rep <-
-  readRDS('/results/mods.cases.rep.rds')
+  readRDS('./results/mods.cases.rep.rds')
 
 #Extract the betas
 beta.rep <- lapply(mods.cases.rep,'[[','beta1')
