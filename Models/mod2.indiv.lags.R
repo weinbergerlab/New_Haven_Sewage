@@ -97,7 +97,7 @@ posterior_samples.mod1<-coda.samples(model_jags,
 posterior_samples.all<-do.call(rbind,posterior_samples.mod1)
 post_means<-apply(posterior_samples.all, 2, median)
 sample.labs<-names(post_means)
-ci<-t(hdi(posterior_samples.all, credMass = 0.90))
+ci<-t(hdi(posterior_samples.all, credMass = 0.9875))
 row.names(ci)<-sample.labs
 names(post_means)<-sample.labs
 post.comb <- cbind.data.frame(post_means, ci)
