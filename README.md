@@ -10,3 +10,5 @@ time series model to get an estimate of the underlying viral dynamics in sewage 
 This analysis is carried out in the Bayesian framework, allowing us to correctly quantify uncertainty in the estimated associations. 
 These additional analyses were performed by Dan Weinberger (Epidemiology of Microbial Diseases, Yale School of Public Health),
 with input from Josh Warren (Biostatistics, Yale School of Public Health) and the rest of the original study team.
+
+The results of the analyses can be found here: https://weinbergerlab.github.io/New_Haven_Sewage/
