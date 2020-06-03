@@ -1,5 +1,5 @@
 ---
-title: "sewage"
+title: "Coronavirus in New Haven Sewage"
 author: "Dan Weinberger"
 date: "6/1/2020"
 output:
@@ -66,12 +66,19 @@ tests.nh.agg$date <- as.Date(tests.nh.agg$date)
 
 
 ds.hosp <- read_excel('./Data/epi.data.xlsx')
+ds.hosp$new.cases <-NULL
 ds.hosp$date <- as.Date(ds.hosp$date)
 ds1.m$date <- as.Date(ds1.m$date)
+
+ds.cases <- read_excel('./Data/updated case data by reporting date.xlsx')
+names(ds.cases) <- c('date','new.cases')
+ds.cases$date <- as.Date(ds.cases$date)
 
 ds3 <- merge(ds2.nh.agg, ds1.m, by='date', all=T)
 ds3 <- merge(ds3, tests.nh.agg, by='date', all=T)
 ds3 <- merge(ds3, ds.hosp, by='date', all=T)
+ds3 <- merge(ds3, ds.cases, by='date', all=T)
+
 ds3$prop.pos <- ds3$pos.tests/ds3$cov.tests
 #plot(ds3$pos.tests)
 #points(ds3$new.pos.tests)
@@ -97,7 +104,7 @@ ds3$date <- as.Date(ds3$date)
 
 ## Plots of raw data
 
-This vertical lines are spaced 7 days apart. The increase in sewage is apparent earlier than the increase in the other indicators. This is particularly apparent on the log scale. Note data for reported cases is not available for the first week (shaded)
+This vertical lines are spaced 7 days apart. The increase in sewage is apparent earlier than the increase in the other indicators. This is particularly apparent on the log scale. 
 ```{r, fig.width=8, fig.height=13}
 par(mfrow=c(4,2))
 plot(ds3$date, (ds3$hospt_admit), type='l', bty='l', main='Hospitalizations', ylab=('Log(Hospitalizations (N))'))
@@ -121,12 +128,12 @@ abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-
 
 
 
-plot(ds3$date, (ds3$new.cases), main='New cases', xlab='Date', ylab='Log Concentration', bty='l', type='l')
+plot(ds3$date, (ds3$new.cases), main='New reported cases', xlab='Date', ylab='Log (Reported cases)', bty='l', type='l')
 polygon( as.Date(c( c('2020-03-17','2020-03-24'), c('2020-03-24','2020-03-17'))), c(c(-1000,-1000 ),c(1000,1000)),col = rgb(0, 0, 1, alpha = 0.1), border = NA)
 abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-14','2020-04-21','2020-04-28')), lty=2, col='gray')
 
 
-plot(ds3$date, log(ds3$new.cases), main='log(New cases)', type='l', xlab='Date', ylab='Log Concentration', bty='l')
+plot(ds3$date, log(ds3$new.cases), main='log(New reported cases)', type='l', xlab='Date', ylab='Log Reported cases', bty='l')
 polygon( as.Date(c( c('2020-03-17','2020-03-24'), c('2020-03-24','2020-03-17'))), c(c(-1000,-1000 ),c(1000,1000)),col = rgb(0, 0, 1, alpha = 0.1), border = NA)
 abline(v=as.Date(c('2020-03-17','2020-03-24','2020-03-31','2020-04-07','2020-04-14','2020-04-21','2020-04-28')), lty=2, col='gray')
 
@@ -270,7 +277,7 @@ saveRDS(mods.cases.rep,'./results/mods.cases.rep.rds')
 
 ```
 
-Rate ratio (+/- 90% Credible intervals) showing the relative increase in reported cases associated with a 1-log increase of sewage RNA concentration at various lags.  Sewage sludge RNA  increases first, then reported cases lags 1,4,or 6 days later, with considerable uncertainty in the estimates and in the length of the lag.  From the plots,  the sewage sludge RNA concentration increase preceded the increase in reported cases
+Rate ratio (+/- 90% Credible intervals) showing the relative increase in reported cases associated with a 1-log increase of sewage RNA concentration at various lags.  Sewage sludge RNA  increases first, then reported cases lags 1 or 6 days later, with considerable uncertainty in the estimates and in the length of the lag.  From the plots,  the sewage sludge RNA concentration increase preceded the increase in reported cases
 ```{r}
 mods.cases.rep <-
   readRDS('./results/mods.cases.rep.rds')
@@ -353,7 +360,7 @@ mod2 <- mod2.func(W=W2.scale, log.offset=log.offset2,Y=Y2)
 saveRDS(mod2, './results/dl.mod2.pct.pos.rds')
 ```
 
-This shows that lags of 0-6 days are associated with cases time series (on the cumulative plot, beta does not increase after 6 days) +/-90% Credible Intervals. 
+This shows that lags of 0-6 days are associated with the proportion positive time series (on the cumulative plot, beta does not increase after 6 days) +/-90% Credible Intervals. 
 
 ```{r, eval=T}
 mod2 <- readRDS('./results/dl.mod2.pct.pos.rds')
@@ -364,7 +371,7 @@ arrows(x0=0:7, y0=mod2$beta1$lower, y1=mod2$beta1$upper, length=0)
 abline(h=0)
 ```
 
-Cumulative relationship between viral RNA in sewage and new cases. +/-90% Credible Intervals.
+Cumulative relationship between viral RNA in sewage and proportion positive. +/-90% Credible Intervals.
 
 ```{r, eval=T}
 yrange <- range(mod2$beta1.cum)
@@ -373,7 +380,7 @@ arrows(x0=0:7, y0=mod2$beta1.cum$lower, y1=mod2$beta1.cum$upper, length=0)
 abline(h=0)
 ```
 
-### Distributed lags for the association between viral RNA in sewage and new COVID-19 cases
+### Distributed lags for the association between viral RNA in sewage and new reported COVID-19 cases
 
 ```{r, eval=params$rerun_model, include=F}
 mod3 <- mod2.func(W=W3.scale, log.offset=log.offset3,Y=Y3)
