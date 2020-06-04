@@ -177,8 +177,10 @@ log.offset.y1 <- rep(0, length(Y1))
 ```
 
 ## Association between sewage concentration and epidemiological indicators (Individual lags)
+
 -We evaluate three epidemiological time series: COVID-19 hospitalizations, proportion of tests that are positive for coronavirus (based on date of test), and number of cases of covid-19 (based on date of report). 
--All of the plots show 98.75% credible intervals, which represent an alpha of 0.1, adjusted for multiple testing
+
+-All of the plots of individual lags show 98.75% credible intervals, which represent an alpha of 0.1, adjusted for multiple testing. The plots of the distributed lag model show 90% credible intervals
 
 ### Association of sewage viral concentration at different lags with hospitalizations 
 
@@ -188,7 +190,7 @@ Test lags of 0-7 days, one at a time.
 mods.hosp <- pblapply(c(0:7), function(zz) mod2.indiv.lag.func( Y=Y1, log.offset=log.offset.y1, W=W1.scale, lag.n=zz))
 saveRDS(mods.hosp,'./results/mods.hosp.rds')
 ```
-Rate ratio (+/- 90% Credible intervals)  showing the relative increase in positive tests associated with a 1-log increase of sewage RNA concentration at various lags (based on date of test). This shows the strongest association with a lag of 1 day, with the effect trailing off with longer or shorter lags. From the plots,  the sewage sludge RNA concentration increase preceded the increase in hospital admissions. 
+Rate ratio (+/- 98.75% Credible intervals)  showing the relative increase in positive tests associated with a 1-log increase of sewage RNA concentration at various lags (based on date of test). This shows the strongest association with a lag of 1 day, with the effect trailing off with longer or shorter lags. From the plots,  the sewage sludge RNA concentration increase preceded the increase in hospital admissions. 
 
 ```{r}
 mods.hosp <-
@@ -234,7 +236,7 @@ mods.cases.dx <- pblapply(c(0:7), function(zz) mod2.indiv.lag.func( Y=Y2, log.of
 saveRDS(mods.cases.dx,'./results/mods.cases.dx.rds')
 
 ```
-Rate ratio (+/- 90% Credible) showing the relative increase in positive tests associated with a 1-log increase of sewage RNA concentration at various lags (based on date of test). This shows the strongest association with a lag of 4 days, with uncertainty in the estimates and in the length of the lag. From the plots,  the sewage sludge RNA concentration preceded the increase in the  proportion of tests that were positive.
+Rate ratio (+/- 98.75% Credible) showing the relative increase in positive tests associated with a 1-log increase of sewage RNA concentration at various lags (based on date of test). This shows the strongest association with a lag of 4 days, with uncertainty in the estimates and in the length of the lag. From the plots,  the sewage sludge RNA concentration preceded the increase in the  proportion of tests that were positive.
 
 ```{r}
 mods.cases.dx <-
@@ -277,7 +279,7 @@ saveRDS(mods.cases.rep,'./results/mods.cases.rep.rds')
 
 ```
 
-Rate ratio (+/- 90% Credible intervals) showing the relative increase in reported cases associated with a 1-log increase of sewage RNA concentration at various lags.  Sewage sludge RNA  increases first, then reported cases lags 1 or 6 days later, with considerable uncertainty in the estimates and in the length of the lag.  From the plots,  the sewage sludge RNA concentration increase preceded the increase in reported cases
+Rate ratio (+/- 98.75% Credible intervals) showing the relative increase in reported cases associated with a 1-log increase of sewage RNA concentration at various lags.  Sewage sludge RNA  increases first, then reported cases lags 1 or 6 days later, with considerable uncertainty in the estimates and in the length of the lag.  From the plots,  the sewage sludge RNA concentration increase preceded the increase in reported cases
 ```{r}
 mods.cases.rep <-
   readRDS('./results/mods.cases.rep.rds')
