@@ -34,11 +34,11 @@ These are additional analyses of data examining increases in SARS-CoV-2 RNA conc
 The original pre-print included a correlation of smoothed versions of the viral RNA data and the epidemiological indicators. In the analyses presented here, we use an error-in-variables time series model to get an estimate of the underlying viral dynamics in sewage and the relationship of this with hospitalizations. This analysis is carried out in the Bayesian framework, allowing us to correctly quantify uncertainty in the estimated associations. These additional analyses were performed by Dan Weinberger (Epidemiology of Microbial Diseases, Yale School of Public Health), with input from Josh Warren (Biostatistics, Yale School of Public Health) and the rest of the original study team.
 
 
-##Explanation of the data and analyses
+## Explanation of the data and analyses
 
 We have up to 4 measurements of viral RNA in sewage sludge daily (2 targets, tested in duplicate), the number of COVID-19 hospitalization per day in the catchment area, the number of new reported cases on that day, and the proportion of tests that were positive for coronavirus on each day. The epi curves won't nedcesarily align because the test data is based on the when the test is performed, while the case data is based on when cases were reported. There will be a lag between these two measures, and this lag was probably longer in the early part of the epidemic.
 
-In the analyses, we assume that the observed sewage testing data (W) are drawn from an underlying, unobserved trajectory of viral concentration in the sewage, which follows an AR(1) process (X). We then evaluate the association between X and the number of hospitalization/cases/positive tests in Poisson regression models. This count model includes an AR(1) random effect for time. The models are fit using JAGS (see Models/mod2.indiv.lags.R). We test lags of the X variable of 0-7 days. We also present results from a distributed lags analysis for comparison.
+In the analyses, we assume that the observed sewage testing data (W) are drawn from an underlying, unobserved trajectory of viral concentration in the sewage, which follows an AR(1) process (X). We then evaluate the association between X and the number of hospitalization/cases/positive tests in Poisson regression models. This count model includes an AR(1) random effect for time. The models are fit using JAGS (see Models/mod2.indiv.lags.R). We test lags of the X variable of 0-7 days in a distributed lags framework. We also present results from each lag tested individually for comparison.
 
 
 ```{r, eval=F, include=F}
@@ -176,11 +176,132 @@ log.offset.y1 <- rep(0, length(Y1))
 
 ```
 
-## Association between sewage concentration and epidemiological indicators (Individual lags)
+
+## Association between sewage concentration and epidemiological indicators (Distributed lags)
+We can model the epidemiological time series as a distributed lag of the sewage data.
 
 -We evaluate three epidemiological time series: COVID-19 hospitalizations, proportion of tests that are positive for coronavirus (based on date of test), and number of cases of covid-19 (based on date of report). 
 
--All of the plots of individual lags show 98.75% credible intervals, which represent an alpha of 0.1, adjusted for multiple testing. The plots of the distributed lag model show 90% credible intervals
+The plots of the distributed lag model show 90% credible intervals
+
+```{r,eval=params$rerun_model, include=F}
+mod2 <- mod2.func(W=W1.scale, Y=Y1,log.offset=log.offset.y1)
+saveRDS(mod2,'./results/dl.mod2.rds')
+```
+
+### Distributed lags for the association between viral RNA in sewage and COVID hospitalizations. 
+This shows that lags of 1-4 days are associated with hospitalization. +/-90% Credible Intervals. From the plots,  the sewage sludge RNA concentration increase preceded the increase in hospital admissions.
+
+```{r}
+mod2 <- readRDS('./results/dl.mod2.rds')
+
+yrange <- range(mod2$beta1)
+plot(0:7, mod2$beta1$post_means, ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
+arrows(x0=0:7, y0=mod2$beta1$lower, y1=mod2$beta1$upper, length=0)
+abline(h=0)
+```
+
+Cumulative relationship between viral RNA in sewage and hospital admissions. This shows that lags of sewage data of 1-4 days together best correlate with the hospitalization time series (after 4 days, cumulative beta does not increase). +/-90% Credible Intervals.
+
+```{r}
+yrange <- range(mod2$beta1.cum)
+plot(0:7, mod2$beta1.cum$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)', pch=16 )
+arrows(x0=0:7, y0=mod2$beta1.cum$lower, y1=mod2$beta1.cum$upper, length=0)
+abline(h=0)
+```
+
+
+### Distributed lags for the association between viral RNA in sewage and proportion positive. 
+
+```{r, eval=T}
+#Note data on new cases are missing
+#ds.mod.m <- melt(ds.mod[!is.na(ds.mod$new.cases),c('date','test','log.conc','new.cases')], id.vars=c('date', 'test'))
+ds.mod.m <- melt(ds.mod[,c('date','test','log.conc','pos.tests', 'cov.tests')], id.vars=c('date', 'test'))
+ds.mod.c <- dcast(ds.mod.m, date~variable+test, fun.aggregate = mean)
+W2 <- ds.mod.c[, grep('log.conc', names(ds.mod.c))] 
+W2 <- apply(W2, 2, function(x){
+ x[is.nan(x)] <-NA
+ return(x)
+} )
+scale.W2 <- apply(W2, 2, scale)
+Y2 <- ds.mod.c[,'pos.tests_rep1_n1']
+Y2[is.nan(Y2)] <-NA
+log.offset2 <- log(ds.mod.c[,'cov.tests_rep1_n1'])
+log.offset2[is.nan(log.offset2)] <-NA
+log.offset2[is.na(log.offset2)] <-0
+W2.scale <- apply(W2,2, scale)
+```
+
+```{r, eval=params$rerun_model, include=F}
+mod2 <- mod2.func(W=W2.scale, log.offset=log.offset2,Y=Y2)
+saveRDS(mod2, './results/dl.mod2.pct.pos.rds')
+```
+
+This shows that lags of 0-6 days are associated with the proportion positive time series (on the cumulative plot, beta does not increase after 6 days) +/-90% Credible Intervals. From the plots,  the sewage sludge RNA concentration increase preceded the increase in proportion positive.
+
+```{r, eval=T}
+mod2 <- readRDS('./results/dl.mod2.pct.pos.rds')
+
+yrange <- range(mod2$beta1)
+plot(0:7, mod2$beta1$post_means, ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
+arrows(x0=0:7, y0=mod2$beta1$lower, y1=mod2$beta1$upper, length=0)
+abline(h=0)
+```
+
+Cumulative relationship between viral RNA in sewage and proportion positive. +/-90% Credible Intervals.
+
+```{r, eval=T}
+yrange <- range(mod2$beta1.cum)
+plot(0:7, mod2$beta1.cum$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)', pch=16 )
+arrows(x0=0:7, y0=mod2$beta1.cum$lower, y1=mod2$beta1.cum$upper, length=0)
+abline(h=0)
+```
+
+### Distributed lags for the association between viral RNA in sewage and new reported COVID-19 cases
+
+```{r, eval=T}
+
+#Note data on new cases are missing
+ds.mod.m <- melt(ds.mod[,c('date','test','log.conc','new.cases')], id.vars=c('date', 'test'))
+ds.mod.c <- dcast(ds.mod.m, date~variable+test, fun.aggregate = mean)
+W3 <- ds.mod.c[, grep('log.conc', names(ds.mod.c))] 
+W3 <- apply(W3, 2, function(x){
+  x[is.nan(x)] <-NA
+  return(x)
+} )
+Y3 <- ds.mod.c[,'new.cases_rep1_n1']
+Y3[is.nan(Y3)] <-NA
+
+log.offset3 <- rep(1, length(Y3))
+W3.scale <- apply(W3,2, scale)
+
+```
+```{r, eval=params$rerun_model, include=F}
+mod3 <- mod2.func(W=W3.scale, log.offset=log.offset3,Y=Y3)
+mod3 <- saveRDS(mod3,'./results/dl.mod3.cases.rds')
+```
+
+This shows that lags of sewage data at longer time lags (6-7 days) best correlate with the time series of reported cases, with considerable uncertainty in the estimates. +/-90% Credible Intervals.
+```{r, eval=T}
+mod3 <- readRDS('./results/dl.mod3.cases.rds')
+
+yrange <- range(mod3$beta1)
+plot(0:7, mod3$beta1$post_means, ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
+arrows(x0=0:7, y0=mod3$beta1$lower, y1=mod3$beta1$upper, length=0)
+abline(h=0)
+```
+
+Cumulative relationship between viral RNA in sewage and new cases. This shows that lags of sewage data at longer time lags (6-7 days) best correlate with the time series of reported cases, with considerable uncertainty in the estimates. +/-90% Credible Intervals.
+```{r, eval=T}
+yrange <- range(mod3$beta1.cum)
+plot(0:7, mod3$beta1.cum$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)', pch=16 )
+arrows(x0=0:7, y0=mod3$beta1.cum$lower, y1=mod3$beta1.cum$upper, length=0)
+abline(h=0)
+```
+
+
+## Association between sewage concentration and epidemiological indicators (Individual lags)
+-All of the plots of individual lags show 98.75% credible intervals, which represent an alpha of 0.1, adjusted for multiple testing.
 
 ### Association of sewage viral concentration at different lags with hospitalizations 
 
@@ -204,8 +325,6 @@ plot(0:7, irr.hospt[,"post_means"], ylim=yrange, bty='l', ylab='Rate ratio', xla
 arrows(x0=0:7, y0=irr.hospt[,"lower"], y1=irr.hospt[,"upper"], length=0)
 abline(h=1, lty=2, col='gray')
 ```
-
-
 
 ### Association of sewage viral concentration at different lags with new cases (defined by date of test)
 
@@ -254,24 +373,6 @@ abline(h=1, lty=2, col='gray')
 
 ### Association of sewage viral concentration at different lags with new cases (defined by date of report)
 
-```{r, eval=T}
-
-#Note data on new cases are missing
-ds.mod.m <- melt(ds.mod[,c('date','test','log.conc','new.cases')], id.vars=c('date', 'test'))
-ds.mod.c <- dcast(ds.mod.m, date~variable+test, fun.aggregate = mean)
-W3 <- ds.mod.c[, grep('log.conc', names(ds.mod.c))] 
-W3 <- apply(W3, 2, function(x){
-  x[is.nan(x)] <-NA
-  return(x)
-} )
-Y3 <- ds.mod.c[,'new.cases_rep1_n1']
-Y3[is.nan(Y3)] <-NA
-
-log.offset3 <- rep(1, length(Y3))
-W3.scale <- apply(W3,2, scale)
-
-```
-
 
 ```{r, eval=T, include=F, eval=params$rerun_model}
 mods.cases.rep <- pblapply(c(0:7), function(zz) mod2.indiv.lag.func( Y=Y3, log.offset=log.offset3, W=W3.scale, lag.n=zz))
@@ -303,111 +404,6 @@ plot(ds3$date,ds3$new.cases, col=as.factor(ds3$dow))
 points(ds3$date,ds3$new.cases, type='l')
 
 ```
-
-
-## Association between sewage concentration and epidemiological indicators (Distributed lags)
-As an alternative, we can model the epidemiological time series as a distributed lag of the sewage data
-
-```{r,eval=params$rerun_model, include=F}
-mod2 <- mod2.func(W=W1.scale, Y=Y1,log.offset=log.offset.y1)
-saveRDS(mod2,'./results/dl.mod2.rds')
-```
-
-### Distributed lags for the association between viral RNA in sewage and COVID hospitalizations. 
-This shows that lags of 1-4 days are associated with hospitalization. +/-90% Credible Intervals.
-
-```{r}
-mod2 <- readRDS('./results/dl.mod2.rds')
-
-yrange <- range(mod2$beta1)
-plot(0:7, mod2$beta1$post_means, ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
-arrows(x0=0:7, y0=mod2$beta1$lower, y1=mod2$beta1$upper, length=0)
-abline(h=0)
-```
-
-Cumulative relationship between viral RNA in sewage and hospital admissions. This shows that lags of sewage data of 1-4 days together best correlate with the hospitalization time series (after 4 days, cumulative beta does not increase). +/-90% Credible Intervals.
-
-```{r}
-yrange <- range(mod2$beta1.cum)
-plot(0:7, mod2$beta1.cum$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)', pch=16 )
-arrows(x0=0:7, y0=mod2$beta1.cum$lower, y1=mod2$beta1.cum$upper, length=0)
-abline(h=0)
-```
-
-
-### Distributed lags for the association between viral RNA in sewage and proportion positive. 
-
-
-```{r, eval=T}
-#Note data on new cases are missing
-#ds.mod.m <- melt(ds.mod[!is.na(ds.mod$new.cases),c('date','test','log.conc','new.cases')], id.vars=c('date', 'test'))
-ds.mod.m <- melt(ds.mod[,c('date','test','log.conc','pos.tests', 'cov.tests')], id.vars=c('date', 'test'))
-ds.mod.c <- dcast(ds.mod.m, date~variable+test, fun.aggregate = mean)
-W2 <- ds.mod.c[, grep('log.conc', names(ds.mod.c))] 
-W2 <- apply(W2, 2, function(x){
- x[is.nan(x)] <-NA
- return(x)
-} )
-scale.W2 <- apply(W2, 2, scale)
-Y2 <- ds.mod.c[,'pos.tests_rep1_n1']
-Y2[is.nan(Y2)] <-NA
-log.offset2 <- log(ds.mod.c[,'cov.tests_rep1_n1'])
-log.offset2[is.nan(log.offset2)] <-NA
-log.offset2[is.na(log.offset2)] <-0
-W2.scale <- apply(W2,2, scale)
-```
-
-```{r, eval=params$rerun_model, include=F}
-mod2 <- mod2.func(W=W2.scale, log.offset=log.offset2,Y=Y2)
-saveRDS(mod2, './results/dl.mod2.pct.pos.rds')
-```
-
-This shows that lags of 0-6 days are associated with the proportion positive time series (on the cumulative plot, beta does not increase after 6 days) +/-90% Credible Intervals. 
-
-```{r, eval=T}
-mod2 <- readRDS('./results/dl.mod2.pct.pos.rds')
-
-yrange <- range(mod2$beta1)
-plot(0:7, mod2$beta1$post_means, ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
-arrows(x0=0:7, y0=mod2$beta1$lower, y1=mod2$beta1$upper, length=0)
-abline(h=0)
-```
-
-Cumulative relationship between viral RNA in sewage and proportion positive. +/-90% Credible Intervals.
-
-```{r, eval=T}
-yrange <- range(mod2$beta1.cum)
-plot(0:7, mod2$beta1.cum$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)', pch=16 )
-arrows(x0=0:7, y0=mod2$beta1.cum$lower, y1=mod2$beta1.cum$upper, length=0)
-abline(h=0)
-```
-
-### Distributed lags for the association between viral RNA in sewage and new reported COVID-19 cases
-
-```{r, eval=params$rerun_model, include=F}
-mod3 <- mod2.func(W=W3.scale, log.offset=log.offset3,Y=Y3)
-mod3 <- saveRDS(mod3,'./results/dl.mod3.cases.rds')
-```
-
-This shows that lags of sewage data at longer time lags (6-7 days) best correlate with the time series of reported cases, with considerable uncertainty in the estimates. +/-90% Credible Intervals.
-```{r, eval=T}
-mod3 <- readRDS('./results/dl.mod3.cases.rds')
-
-yrange <- range(mod3$beta1)
-plot(0:7, mod3$beta1$post_means, ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
-arrows(x0=0:7, y0=mod3$beta1$lower, y1=mod3$beta1$upper, length=0)
-abline(h=0)
-```
-
-Cumulative relationship between viral RNA in sewage and new cases. This shows that lags of sewage data at longer time lags (6-7 days) best correlate with the time series of reported cases, with considerable uncertainty in the estimates. +/-90% Credible Intervals.
-```{r, eval=T}
-yrange <- range(mod3$beta1.cum)
-plot(0:7, mod3$beta1.cum$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)', pch=16 )
-arrows(x0=0:7, y0=mod3$beta1.cum$lower, y1=mod3$beta1.cum$upper, length=0)
-abline(h=0)
-```
-
-
 
 
 
