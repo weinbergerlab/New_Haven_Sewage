@@ -48,6 +48,12 @@ ds1 <- read_excel('./Data/raw RNA data.xlsx')
 ds1.m <- melt(ds1, id.vars='DATE')
 names(ds1.m) <- c('date', 'test','conc')
 
+ds1 <- read_excel('./Data/data through June 1.xlsx')
+ds1.m <- melt(ds1, id.vars='DATE')
+names(ds1.m) <- c('date', 'conc', , 'test')
+
+
+
 ds2 <- read.sas7bdat('./Data/dw1stpostest.sas7bdat')
 ds2$date <-format(as.Date(ds2$newspecdate, origin="1960-01-01"),"%Y-%m-%d")
 
