@@ -5,7 +5,7 @@ mod2.indiv.lag.func<-function(W, Y, log.offset, lag.n=0) {
 
 phi.x0 ~ dnorm(0.00, 0.0001)
 
-for(i in (7+1):(n.times)){
+for(i in (7+1):(n.times-2)){
 
 Y[i] ~ dpois(lambda[i])
 

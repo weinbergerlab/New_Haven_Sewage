@@ -1,4 +1,4 @@
-mod2.func<-function(W, Y, log.offset, nlags=7) {
+mod2.func<-function(W, Y, log.offset, nlags=8, nleads=1) {
   mod2 <- "
   model{
 
@@ -10,26 +10,32 @@ W[i,3] ~ dnorm(X[i], prec.w1)  #Replicate 2, Target 1
 W[i,2] ~ dnorm(X[i], prec.w1)  #Replicate 1, Target 2
 W[i,4] ~ dnorm(X[i], prec.w1)  #Replicate 2, Target 2
 
-X[i] = phi.x0 + phi.x[i]  #X[i] is a RW1
+#X[i] = phi.x0 + phi.x[i]  #X[i] is a RW1
+X[i] ~ dnorm(0.00, 0.0001)
+
 
 }
 
 phi.x0 ~ dnorm(0.00, 0.0001)
 
-for(i in (nlags+1):(n.times)){
+for(i in (nlags+1):(n.times-2)){
 
 Y[i] ~ dpois(lambda[i])
 
 log(lambda[i]) = 
 (beta0 + 
- beta1[1]*X[i] + 
- beta1[2]*X[i-1] +
- beta1[3]*X[i-2] +
- beta1[4]*X[i-3] +
- beta1[5]*X[i-4] +
- beta1[6]*X[i-5] +
- beta1[7]*X[i-6] +
- beta1[8]*X[i-7] +
+ beta1[1]*X[i+1] + 
+ beta1[2]*X[i] + 
+ beta1[3]*X[i-1] +
+ beta1[4]*X[i-2] +
+ beta1[5]*X[i-3] +
+ beta1[6]*X[i-4] +
+ beta1[7]*X[i-5] +
+ beta1[8]*X[i-6] +
+ beta1[9]*X[i-7] +
+ beta1[10]*X[i-8] +
+ #beta1[11]*X[i-9] +
+
  phi.y[i] + #phi.y is an AR1
  log.offset[i]
  ) 
@@ -41,7 +47,7 @@ beta0 ~ dnorm(0.00, 0.0001)
 beta1[1] ~ dnorm(0.00, 0.0001)
 beta1.cum[1] <- beta1[1]
 
-for(k in 2:(nlags + 1)){
+for(k in 2:(nlags + nleads+1)){
   beta1[k] ~ dnorm(beta1[k-1], prec.beta)
   beta1.cum[k] <- sum(beta1[1:k])
 }
@@ -94,12 +100,13 @@ model_jags<-jags.model(model_spec,
                        data=list('Y' = Y,
                                  'W' = W,
                                  'nlags'=nlags,
+                                 'nleads'=nleads,
                                  'log.offset'=log.offset,
                                  'n.times'=(length(Y))),
-                       n.adapt=10000, 
+                       n.adapt=20000, 
                        n.chains=3)
 
-params<-c('lambda','phi.x', 'beta1', 'beta1.cum','X')
+params<-c('lambda','phi.x', 'beta1', 'beta1.cum','X', 'phi.y')
 
 ##############################################
 #Posterior Sampling
@@ -130,7 +137,7 @@ beta1 <- post.comb[beta1.index,]
 beta1.cum <- post.comb[beta1.cum.index,]
 X <- post.comb[x.index,]
 
-outlist.mod1 <- list('rw.x'=rw.x,'beta1'=beta1,'beta1.cum'=beta1.cum,'lambda'=lambda,'X'=X)
+outlist.mod1 <- list('rw.x'=rw.x,'beta1'=beta1,'beta1.cum'=beta1.cum,'lambda'=lambda,'X'=X,'posterior_samples.all'=posterior_samples.all)
 return(outlist.mod1)
 }
 
