@@ -10,8 +10,8 @@ W[i,3] ~ dnorm(X[i], prec.w1)  #Replicate 2, Target 1
 W[i,2] ~ dnorm(X[i], prec.w1)  #Replicate 1, Target 2
 W[i,4] ~ dnorm(X[i], prec.w1)  #Replicate 2, Target 2
 
-X[i] = phi.x0 + phi.x[i]  #X[i] is a RW1
-#X[i] ~ dnorm(0.00, 0.0001)
+#X[i] = phi.x0 + phi.x[i]  #X[i] is a RW1
+X[i] ~ dnorm(0.00, 0.0001)
 
 
 }
@@ -61,17 +61,17 @@ prec.beta <- 1/sd.beta^2
 sd.beta ~ dunif(0,100)
 
 #RW for X, AR(1) y
-phi.x[1] ~ dnorm(0.00, tau.rw.x)
+#phi.x[1] ~ dnorm(0.00, tau.rw.x)
 phi.y[1] ~ dnorm(0.00, tau.rw.y)
 
 for(g in 2:(n.times)){
-  phi.x[g] ~ dnorm(phi.x[g-1] , tau.rw.x)
+#  phi.x[g] ~ dnorm(phi.x[g-1] , tau.rw.x)
   phi.y[g] ~ dnorm(rho.y*phi.y[g-1] , tau.rw.y)
 }
 
 rho.y~dunif(0,1)
 
-tau.rw.x <- 1/sd.rw.x^2
+#tau.rw.x <- 1/sd.rw.x^2
 tau.rw.y <- 1/sd.rw.y^2
 
 sd.rw.x ~ dunif(0,100)
@@ -124,20 +124,20 @@ row.names(ci)<-sample.labs
 names(post_means)<-sample.labs
 post.comb <- cbind.data.frame(post_means, ci)
 
-rw.x.index <- grep('phi.x', sample.labs)
+#rw.x.index <- grep('phi.x', sample.labs)
 lambda.index <- grep('lambda', sample.labs)
 beta1.index <- grep('beta1[', sample.labs, fixed=T)
 beta1.cum.index <- grep('beta1.cum', sample.labs)
 x.index <- grep('X', sample.labs)
 
 
-rw.x <- post.comb[rw.x.index,]
+#rw.x <- post.comb[rw.x.index,]
 lambda <- post.comb[lambda.index,]
 beta1 <- post.comb[beta1.index,]
 beta1.cum <- post.comb[beta1.cum.index,]
 X <- post.comb[x.index,]
 
-outlist.mod1 <- list('rw.x'=rw.x,'beta1'=beta1,'beta1.cum'=beta1.cum,'lambda'=lambda,'X'=X,'posterior_samples.all'=posterior_samples.all)
+outlist.mod1 <- list('beta1'=beta1,'beta1.cum'=beta1.cum,'lambda'=lambda,'X'=X,'posterior_samples.all'=posterior_samples.all)
 return(outlist.mod1)
 }
 

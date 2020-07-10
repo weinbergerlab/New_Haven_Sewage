@@ -282,11 +282,11 @@ scale.W2 <- apply(W2, 2, scale)
 Y2 <- ds.mod.c[,"pos.tests_R1, N1"]
 Y2[is.nan(Y2)] <-NA
 
-#log.offset2 <- log(ds.mod.c[,"cov.tests_R1, N1"])
-#log.offset2[is.nan(log.offset2)] <-NA
-#log.offset2[is.na(log.offset2)] <-0
+log.offset2 <- log(ds.mod.c[,"cov.tests_R1, N1"])
+log.offset2[is.nan(log.offset2)] <-NA
+log.offset2[is.na(log.offset2)] <-0
 
-log.offset2 <- rep(0,length(Y2))
+#log.offset2 <- rep(0,length(Y2))
 
 W2.scale <- apply(W2,2, scale)
 ```
