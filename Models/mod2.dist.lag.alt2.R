@@ -10,8 +10,8 @@ W[i,3] ~ dnorm(X[i], prec.w1)  #Replicate 2, Target 1
 W[i,2] ~ dnorm(X[i], prec.w1)  #Replicate 1, Target 2
 W[i,4] ~ dnorm(X[i], prec.w1)  #Replicate 2, Target 2
 
-#X[i] = phi.x0 + phi.x[i]  #X[i] is a RW1
-X[i] ~ dnorm(0.00, 0.0001)
+X[i] = phi.x0 + phi.x[i]  #X[i] is a RW1
+#X[i] ~ dnorm(0.00, 0.0001)
 
 
 }
