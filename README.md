@@ -12,3 +12,12 @@ These additional analyses were performed by Dan Weinberger (Epidemiology of Micr
 with input from Josh Warren (Biostatistics, Yale School of Public Health) and the rest of the original study team.
 
 The results of the analyses can be found here: https://weinbergerlab.github.io/New_Haven_Sewage/
+
+On the data file:
+'new.cases' is based on positive tests as reported on the department of public health website based on date of report on the website
+
+'hospt.admit' is number of admissions to the hospital in the catchment area
+
+N_positive_reported and N_test_reported is based on positive tests and total tests performed based on the data when the lab reported to DPH
+
+N_positive_received and N_test_received is based on positive samples and tests performed based on date of sample collection.
