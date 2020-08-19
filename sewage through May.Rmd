@@ -36,7 +36,17 @@ The original pre-print included a correlation of smoothed versions of the viral 
 
 ## Explanation of the data and analyses
 
-We have up to 4 measurements of viral RNA in sewage sludge daily (2 targets, tested in duplicate), the number of COVID-19 hospitalization per day in the catchment area, the number of new reported cases on that day, and the proportion of tests that were positive for coronavirus on each day. The epi curves won't nedcesarily align because the test data is based on the when the test is performed, while the case data is based on when cases were reported. There will be a lag between these two measures, and this lag was probably longer in the early part of the epidemic.
+We have up to 4 measurements of viral RNA in sewage sludge daily (2 targets, tested in duplicate). We also have the number of COVID-19 hospitalization per day in the catchment area. 
+
+We have five ways of measuring cases detected by laboratory test.
+
+1a,b) Number of positive tests based on date when sample was collected; with or with adjustment for total number of tests performed
+
+2a,b) Number of positive tests based on date when result was reported to DPH; with or with adjustment for total number of tests performed
+
+3) Number of cases reported on the DPH website.
+
+The number of cases reported on the DPH website is used for the main analyses here. This is because this is the relevant comparison when the goal is to identify a lead indicator to gain an understanding of the epidemic.cThe relationship among these different measure changes over the course of the epidemic as testing delays shrank. T
 
 In the analyses, we assume that the observed sewage testing data (W) are drawn from an underlying, unobserved trajectory of viral concentration in the sewage, which follows an AR(1) process (X). We then evaluate the association between X and the number of hospitalization/cases/positive tests in Poisson regression models. This count model includes an AR(1) random effect for time. The models are fit using JAGS (see Models/mod2.indiv.lags.R). We test lags of the X variable of 0-7 days in a distributed lags framework. We also present results from each lag tested individually for comparison.
 
@@ -50,14 +60,10 @@ In the analyses, we assume that the observed sewage testing data (W) are drawn f
 
 ds1.m <- read_excel('./Data/data through June 1.xlsx')
 names(ds1.m) <- c('date', 'conc', 'new.cases', 'test')
-
-
+ds1.m$date <- as.Date(ds1.m$date)
 
 ds2 <- read.sas7bdat('./Data/dw1stpostest2020_6_15.sas7bdat')
 ds2$date <-format(as.Date(ds2$newspecdate, origin="1960-01-01"),"%Y-%m-%d")
-
-tests <- read.sas7bdat('./Data/dw1stcovtest2020_6_15.sas7bdat')
-tests$date <-format(as.Date(tests$newspecdate, origin="1960-01-01"),"%Y-%m-%d")
 
 ds2.nh <- ds2[ds2$OfficialCity %in% c('NEW HAVEN', 'EAST HAVEN','HAMDEN', 'WOODBRIDGE'),]
 ds2.nh$pos.tests <-1
@@ -69,6 +75,54 @@ tests.nh$cov.tests <-1
 tests.nh.agg <- aggregate(tests.nh[,'cov.tests', drop=F],by=list('date'=tests.nh$date), FUN=sum)
 tests.nh.agg$date <- as.Date(tests.nh.agg$date)
 
+#Info on date of report and test from DPH
+tests.report <-
+  read.sas7bdat('./Data/dw_1stcovtest_wdates.sas7bdat')
+
+tests.report$DateReported <-
+  format(as.Date(tests.report$DateReported,                               origin="1960-01-01"),"%Y-%m-%d")
+
+tests.report$newspecdate <-
+  format(as.Date(tests.report$newspecdate, origin="1960-01-01"),"%Y-%m-%d")
+
+tests.report$test.time <- 
+  as.numeric(as.Date(tests.report$DateReported) -
+  as.Date(tests.report$newspecdate))
+
+test.nh <-  
+  tests.report[tests.report$OfficialCity %in% c('NEW HAVEN', 'EAST HAVEN','HAMDEN', 'WOODBRIDGE'),]
+
+test.nh$pos.tests <- 0
+test.nh$pos.tests[test.nh$TestResult %in% c('DETECTED', 'POSITIVE')] <- 1
+
+test.nh$tests <- 1
+
+test.nh.agg.report <- aggregate(test.nh[,c('tests','pos.tests'), drop=F],by=list('date_reported'=test.nh$DateReported), FUN=sum)
+
+test.nh.agg.report$date_reported <-
+  as.Date(test.nh.agg$date_reported)
+
+names(test.nh.agg.report) <- c('date', 'N_tests_reported','N_positive_reported')
+
+test.nh.agg.rec <- aggregate(test.nh[,c('tests','pos.tests'), drop=F],by=list('date_received'=test.nh$newspecdate), FUN=sum)
+
+test.nh.agg.rec$date_received <-
+  as.Date(test.nh.agg.rec$date_received)
+
+names(test.nh.agg.rec) <- c('date', 'N_tests_received','N_positive_recieved')
+
+test.nh.combined <-
+  merge(test.nh.agg.rec,test.nh.agg.report, by='date', all=T)
+
+test.nh.combined <- test.nh.combined[,-6]
+
+test.nh.combined <- 
+  test.nh.combined[test.nh.combined$date <= as.Date('2020-06-30'),]
+
+test.nh.combined[,-1] <- apply(test.nh.combined[,-1],2, function(x){
+  x[is.na(x)] <- 0
+  return(x)
+})
 
 ds.hosp <- read_excel('./Data/hospitalization2020_07_08.xlsx')
 ds.hosp <- as.data.frame(ds.hosp)
@@ -76,24 +130,26 @@ ds.hosp$date <- as.Date(ds.hosp[,1])
 ds.hosp$hospt_admit <- ds.hosp$`# ADMISSIONS`
 ds.hosp <- ds.hosp[,c('date','hospt_admit')]
 
-ds1.m$date <- as.Date(ds1.m$date)
+#ds1.m$date <- as.Date(ds1.m$date)
 
 
 #ds.cases <- read_excel('./Data/updated case data by reporting date.xlsx')
 #names(ds.cases) <- c('date','new.cases')
 #ds.cases$date <- as.Date(ds.cases$date)
 
-ds3 <- merge(ds2.nh.agg, ds1.m, by='date', all=T)
-ds3 <- merge(ds3, tests.nh.agg, by='date', all=T)
-ds3 <- merge(ds3, ds.hosp, by='date', all=T)
+ds3 <- merge(test.nh.combined, ds.hosp, by='date', all=T)
+ds3 <- merge(ds3, ds1.m, by='date', all=T)
 
-ds3$prop.pos <- ds3$pos.tests/ds3$cov.tests
-#plot(ds3$pos.tests)
-#points(ds3$new.pos.tests)
+ds3$prop.pos_report <-
+  ds3$N_positive_reported/ds3$N_tests_reported
+
+ds3$prop.pos_rec <-
+  ds3$N_positive_recieved/ds3$N_tests_received
 
 ds3$conc <- as.numeric(ds3$conc)
 ds3$target <- 'N1'
 ds3$target[grep('N2', ds3$test)] <- 'N2'
+
 
 write.csv(ds3,'./Data/combined.data.csv')
 ```
@@ -107,6 +163,16 @@ write.csv(ds3,'./Data/combined.data.csv')
 
 ds3 <- read.csv('./Data/combined.data.csv')
 ds3$date <- as.Date(ds3$date)
+```
+
+```{r, eval=F}
+#Compare "new.case' with N_positive_reported
+plot(ds3$new.cases, ds3$N_positive_reported)
+abline(a=0, b=1)
+
+plot(ds3$date, ds3$N_positive_reported, col='black', type='l')
+points(ds3$date, ds3$new.cases, col='red', type='l')
+abline(a=0, b=1)
 ```
 
 
@@ -132,23 +198,23 @@ plot(ds3$date, log(ds3$hospt_admit), type='l', bty='l', main='Log Hospitalizatio
 polygon( as.Date(c( c('2020-03-17','2020-03-24'), c('2020-03-24','2020-03-17'))), c(c(-1000,-1000 ),c(1000,1000)),col = rgb(0, 0, 1, alpha = 0.1), border = NA)
 abline(v=seq.Date(from=as.Date('2020-03-17'),length.out=15, by='week') , lty=2, col=rgb(0,0,0,alpha=0.1))
 
-#Tests
+# Cases based on date of report
 # plot(ds3$date, ds3$new.cases, type='l', main='New reported cases')
-plot(ds3$date, (ds3$new.cases), main='New cases, based on report date', xlab='Date', ylab='Reported cases', bty='l', type='l')
+plot(ds3$date, (ds3$N_positive_reported), main='New cases, based on report date', xlab='Date', ylab='Reported cases', bty='l', type='l')
 polygon( as.Date(c( c('2020-03-17','2020-03-24'), c('2020-03-24','2020-03-17'))), c(c(-1000,-1000 ),c(1000,1000)),col = rgb(0, 0, 1, alpha = 0.1), border = NA)
 abline(v=seq.Date(from=as.Date('2020-03-17'),length.out=15, by='week') , lty=2, col=rgb(0,0,0,alpha=0.1))
 
-plot(ds3$date, log(ds3$new.cases), main='log(New cases, based on report date)', type='l', xlab='Date', ylab='Log Reported cases', bty='l')
+plot(ds3$date, log((ds3$N_positive_reported+0.5)), main='log(New cases, based on report date)', type='l', xlab='Date', ylab='Log Reported cases', bty='l')
 polygon( as.Date(c( c('2020-03-17','2020-03-24'), c('2020-03-24','2020-03-17'))), c(c(-1000,-1000 ),c(1000,1000)),col = rgb(0, 0, 1, alpha = 0.1), border = NA)
 abline(v=seq.Date(from=as.Date('2020-03-17'),length.out=15, by='week') , lty=2, col=rgb(0,0,0,alpha=0.1))
 
 
-#Pos tests
-plot(ds3$date, ds3$pos.tests, main='New cases, based on test date', xlab='Date', ylab='Log(cases)', bty='l' , type='l')
+#Pos tests ased on date of sample collection
+plot(ds3$date, ds3$N_positive_recieved, main='New cases, based on sample receipt date', xlab='Date', ylab='Log(cases)', bty='l' , type='l')
 polygon( as.Date(c( c('2020-03-17','2020-03-24'), c('2020-03-24','2020-03-17'))), c(c(-1000,-1000 ),c(1000,1000)),col = rgb(0, 0, 1, alpha = 0.1), border = NA)
 abline(v=seq.Date(from=as.Date('2020-03-17'),length.out=15, by='week') , lty=2, col=rgb(0,0,0,alpha=0.1))
 
-plot(ds3$date, log(ds3$pos.tests), main='Log(New cases, based on test date)', xlab='Date', ylab='Log(Reported Cases)', bty='l', type='l')
+plot(ds3$date, log(ds3$N_positive_recieved+0.5), main='Log(New cases, based on sample receipt date)', xlab='Date', ylab='Log(Reported Cases)', bty='l', type='l')
 polygon( as.Date(c( c('2020-03-17','2020-03-24'), c('2020-03-24','2020-03-17'))), c(c(-1000,-1000 ),c(1000,1000)),col = rgb(0, 0, 1, alpha = 0.1), border = NA)
 abline(v=seq.Date(from=as.Date('2020-03-17'),length.out=15, by='week') , lty=2, col=rgb(0,0,0,alpha=0.1))
 
@@ -157,10 +223,16 @@ abline(v=seq.Date(from=as.Date('2020-03-17'),length.out=15, by='week') , lty=2, 
 
 ```
 
-Comparing the new cases of COVID-19 based on test date or date of report, we can see a long lag early in the epidemic between test date and report date. This gap seems to narrow as the epidemic progresses, perhaps due to improvements in testing
+Comparing the new cases of COVID-19 based on sample receipt date or date of report, we can see a long lag early in the epidemic between sample collection date and date of report to DPH. This gap seems to narrow as the epidemic progresses, perhaps due to improvements in testing
 ```{r}
-plot(ds3$date, (ds3$new.cases), main='Test date (red) vs report date (black)', xlab='Date', ylab='(Reported cases)', bty='l', type='l')
-points(ds3$date, (ds3$pos.tests), col='red', type='l')
+plot(ds3$date, (ds3$N_positive_reported), main='Sample receipt date (red) vs report date (black)', xlab='Date', ylab='(Reported cases)', bty='l', type='l')
+points(ds3$date, (ds3$N_positive_recieved), col='red', type='l')
+```
+
+Comparing the new cases of COVID-19 based on date of report to DPH (black) and when the data were reported on the DPH website (red).
+```{r}
+plot(ds3$date, (ds3$N_positive_reported), main='Web report date (red) vs report date to DPH (black)', xlab='Date', ylab='(Reported cases)', bty='l', type='l')
+points(ds3$date, (ds3$new.cases), col='red', type='l')
 ```
 
 
@@ -194,7 +266,7 @@ log.offset.y1 <- rep(0, length(Y1))
 ## Association between sewage concentration and epidemiological indicators (Distributed lags)
 We can model the epidemiological time series as a distributed lag of the sewage data.
 
--We evaluate three epidemiological time series: COVID-19 hospitalizations, number of cases of covid-19 (based on date of test), and number of cases of covid-19 (based on date of report). 
+-We evaluate three epidemiological time series: COVID-19 hospitalizations, number of cases of covid-19 (based on date of sample receipt), and number of cases of covid-19 (based on date of report). 
 
 The plots of the distributed lag model show 90% credible intervals
 
@@ -223,7 +295,8 @@ plot(-1:8, mod2$beta1.cum$post_means, ylim=yrange, bty='l', ylab='Cumulative bet
 arrows(x0=-1:8, y0=mod2$beta1.cum$lower, y1=mod2$beta1.cum$upper, length=0)
 abline(h=0)
 ```
-### Distributed lags for the association between viral RNA in sewage and new reported COVID-19 cases, based on reporting date
+
+### Distributed lags for the association between viral RNA in sewage and new reported COVID-19 cases, based on reporting date on the CT DPH website
 
 ```{r, eval=T}
 
@@ -237,18 +310,94 @@ W3 <- apply(W3, 2, function(x){
 } )
 Y3 <- ds.mod.c[,'new.cases_R1, N1']
 Y3[is.nan(Y3)] <-NA
+#Y3[is.na(Y3)] <- 0
 
-log.offset3 <- rep(0, length(Y3))
+log.offset3.null <- rep(0, length(Y3))
+
 W3.scale <- apply(W3,2, scale)
 
 ```
 
+
 ```{r, eval=params$rerun_model, include=F}
-mod3 <- mod2.func(W=W3.scale, log.offset=log.offset3,Y=Y3)
-mod3 <- saveRDS(mod3,'./results/dl.mod3.cases.rds')
+mod3 <- mod2.func(W=W3.scale, log.offset=log.offset3.null,Y=Y3)
+saveRDS(mod3,'./results/dl.mod3.cases.web.rds')
 ```
 
-This shows that lags of sewage data at longer time lags (6-7 days) best correlate with the time series of reported cases, with considerable uncertainty in the estimates. +/-90% Credible Intervals.
+This shows that lags of sewage data at longer time lags (6-8 days) best correlate with the time series of reported cases, with considerable uncertainty in the estimates. +/-90% Credible Intervals. Note that the lag between reported cases and the sewage data shrinks over time (see time series plots) as testing improves.
+```{r, eval=T}
+mod3 <- readRDS('./results/dl.mod3.cases.web.rds')
+
+yrange <- range(mod3$beta1)
+plot(-1:8, mod3$beta1$post_means, ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
+arrows(x0=-1:8, y0=mod3$beta1$lower, y1=mod3$beta1$upper, length=0)
+abline(h=0)
+```
+
+
+Cumulative relationship between viral RNA in sewage and hospital admissions. This shows that lags of sewage data of 6-8 days together best correlate with the hospitalization time series (after 4 days, cumulative beta does not increase). +/-90% Credible Intervals.
+
+```{r}
+yrange <- range(mod3$beta1.cum)
+plot(-1:8, mod3$beta1.cum$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)', pch=16 )
+arrows(x0=-1:8, y0=mod3$beta1.cum$lower, y1=mod3$beta1.cum$upper, length=0)
+abline(h=0)
+```
+
+### Distributed lags for the association between viral RNA in sewage and COVID hospitalizations. 
+This shows that lags of 1-4 days are associated with hospitalization. +/-90% Credible Intervals. From the plots,  the sewage sludge RNA concentration increase preceded the increase in hospital admissions.
+
+```{r}
+mod2 <- readRDS('./results/dl.mod2.rds')
+
+yrange <- range(mod2$beta1)
+plot(-1:8, mod2$beta1$post_means, ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
+arrows(x0=-1:8, y0=mod2$beta1$lower, y1=mod2$beta1$upper, length=0)
+abline(h=0)
+```
+
+Cumulative relationship between viral RNA in sewage and hospital admissions. This shows that lags of sewage data of 1-4 days together best correlate with the hospitalization time series (after 4 days, cumulative beta does not increase). +/-90% Credible Intervals.
+
+```{r}
+yrange <- range(mod2$beta1.cum)
+plot(-1:8, mod2$beta1.cum$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)', pch=16 )
+arrows(x0=-1:8, y0=mod2$beta1.cum$lower, y1=mod2$beta1.cum$upper, length=0)
+abline(h=0)
+```
+
+### Distributed lags for the association between viral RNA in sewage and new COVID-19 cases, based on date of report to DPH
+
+```{r, eval=T}
+
+#Note data on new cases are missing
+ds.mod.m <- melt(ds.mod[,c('date','test','log.conc','N_tests_reported','N_positive_reported')], id.vars=c('date', 'test'))
+ds.mod.c <- dcast(ds.mod.m, date~variable+test, fun.aggregate = mean)
+W3 <- ds.mod.c[, grep('log.conc', names(ds.mod.c))] 
+W3 <- apply(W3, 2, function(x){
+  x[is.nan(x)] <-NA
+  return(x)
+} )
+Y3 <- ds.mod.c[,'N_positive_reported_R1, N1']
+Y3[is.nan(Y3)] <-NA
+#Y3[is.na(Y3)] <- 0
+
+log.offset3 <- log(ds.mod.c[,'N_tests_reported_R1, N1'])
+log.offset3[is.nan(log.offset3)] <-1
+log.offset3[is.na(log.offset3)] <-0
+
+log.offset3.null <- rep(0, length(log.offset3))
+
+W3.scale <- apply(W3,2, scale)
+
+```
+
+
+```{r, eval=params$rerun_model, include=F}
+mod3 <- mod2.func(W=W3.scale, log.offset=log.offset3,Y=Y3)
+saveRDS(mod3,'./results/dl.mod3.cases.rds')
+```
+
+This shows that lags of sewage data at longer time lags (0-4 days) best correlate with the time series of reported cases, with considerable uncertainty in the estimates. +/-90% Credible Intervals. Note that the lag between reported cases and the sewage data shrinks over time (see time series plots) as testing improves.
 ```{r, eval=T}
 mod3 <- readRDS('./results/dl.mod3.cases.rds')
 
@@ -258,7 +407,8 @@ arrows(x0=-1:8, y0=mod3$beta1$lower, y1=mod3$beta1$upper, length=0)
 abline(h=0)
 ```
 
-Cumulative relationship between viral RNA in sewage and new cases. This shows that lags of sewage data at longer time lags (6-8 days) best correlate with the time series of reported cases, with considerable uncertainty in the estimates. +/-90% Credible Intervals.
+Cumulative relationship between viral RNA in sewage and new cases. This shows that lags of sewage data at longer time lags (0-4 days) best correlate with the time series of reported cases, with considerable uncertainty in the estimates. +/-90% Credible Intervals.
+
 ```{r, eval=T}
 yrange <- range(mod3$beta1.cum)
 plot(-1:8, mod3$beta1.cum$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)', pch=16 )
@@ -266,12 +416,41 @@ arrows(x0=-1:8, y0=mod3$beta1.cum$lower, y1=mod3$beta1.cum$upper, length=0)
 abline(h=0)
 ```
 
-### Distributed lags for the association between viral RNA in sewage and number positive, based on test date. 
+We can also repeat this analysis without adjusting for testing volume
+
+```{r, eval=params$rerun_model, include=F}
+mod3.no.offset <- 
+  mod2.func(W=W3.scale, log.offset=log.offset3.null,Y=Y3)
+
+saveRDS(mod3.no.offset,'./results/dl.mod3.cases.no.offset.rds')
+```
+
+
+This shows largely the same pattern as when adjusting for testing volume. (1-4 day lags) best correlate with the time series of reported cases, with considerable uncertainty in the estimates. +/-90% Credible Intervals.
+```{r, eval=T}
+mod3.no.offset <-
+  readRDS('./results/dl.mod3.cases.no.offset.rds')
+
+yrange <- range(mod3.no.offset$beta1)
+
+plot(-1:8, mod3.no.offset$beta1$post_means, ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
+arrows(x0=-1:8, y0=mod3.no.offset$beta1$lower, y1=mod3.no.offset$beta1$upper, length=0)
+abline(h=0)
+```
+Cumulative relationship between viral RNA in sewage and new cases (not adjusting for testing volume). This shows that lags of sewage data at longer time lags (1-4 days) best correlate with the time series of reported cases, with considerable uncertainty in the estimates. +/-90% Credible Intervals.
+```{r, eval=T}
+yrange <- range(mod3.no.offset$beta1.cum)
+plot(-1:8, mod3.no.offset$beta1.cum$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)', pch=16 )
+arrows(x0=-1:8, y0=mod3.no.offset$beta1.cum$lower, y1=mod3.no.offset$beta1.cum$upper, length=0)
+abline(h=0)
+```
+
+### Distributed lags for the association between viral RNA in sewage and number positive, based on date when the sample was collected. 
 
 ```{r, eval=T}
 #Note data on new cases are missing
 #ds.mod.m <- melt(ds.mod[!is.na(ds.mod$new.cases),c('date','test','log.conc','new.cases')], id.vars=c('date', 'test'))
-ds.mod.m <- melt(ds.mod[,c('date','test','log.conc','pos.tests', 'cov.tests')], id.vars=c('date', 'test'))
+ds.mod.m <- melt(ds.mod[,c('date','test','log.conc',"N_positive_recieved", "N_tests_received" )], id.vars=c('date', 'test'))
 ds.mod.c <- dcast(ds.mod.m, date~variable+test, fun.aggregate = mean)
 W2 <- ds.mod.c[, grep('log.conc', names(ds.mod.c))] 
 W2 <- apply(W2, 2, function(x){
@@ -279,10 +458,10 @@ W2 <- apply(W2, 2, function(x){
  return(x)
 } )
 scale.W2 <- apply(W2, 2, scale)
-Y2 <- ds.mod.c[,"pos.tests_R1, N1"]
+Y2 <- ds.mod.c[,"N_positive_recieved_R1, N1"]
 Y2[is.nan(Y2)] <-NA
 
-log.offset2 <- log(ds.mod.c[,"cov.tests_R1, N1"])
+log.offset2 <- log(ds.mod.c[,"N_tests_received_R1, N1"])
 log.offset2[is.nan(log.offset2)] <-NA
 log.offset2[is.na(log.offset2)] <-0
 
@@ -296,7 +475,7 @@ mod2 <- mod2.func(W=W2.scale, Y=Y2, log.offset=log.offset2)
 saveRDS(mod2, './results/dl.mod2.pct.pos.rds')
 ```
 
-This shows that lags of 0-2 days are associated with the case time series, based on date of test, (on the cumulative plot, beta does not increase after 2 days) +/-90% Credible Intervals. From the plots, the sewage sludge RNA concentration increase preceded the increase in number of cases, based on test date.
+This shows that lags of 0-2 days are associated with the case time series, based on date of test, (on the cumulative plot, beta does not increase after 2 days) +/-90% Credible Intervals. From the plots, the sewage sludge RNA concentration increase preceded the increase in number of cases, based on sample collection date.
 
 ```{r, eval=T}
 mod2 <- readRDS('./results/dl.mod2.pct.pos.rds')
@@ -307,7 +486,7 @@ arrows(x0=-1:8, y0=mod2$beta1$lower, y1=mod2$beta1$upper, length=0)
 abline(h=0)
 ```
 
-Cumulative relationship between viral RNA in sewage and number of cases based on test date. +/-90% Credible Intervals.
+Cumulative relationship between viral RNA in sewage and number of cases based on sample collection date. +/-90% Credible Intervals.
 
 ```{r, eval=T}
 yrange <- range(mod2$beta1.cum)
@@ -349,7 +528,7 @@ abline(h=1, lty=2, col=rgb(0,0,0,alpha=0.1))
 
 #Note data on new cases are missing
 #ds.mod.m <- melt(ds.mod[!is.na(ds.mod$new.cases),c('date','test','log.conc','new.cases')], id.vars=c('date', 'test'))
-ds.mod.m <- melt(ds.mod[,c('date','test','log.conc','pos.tests', 'cov.tests')], id.vars=c('date', 'test'))
+ds.mod.m <- melt(ds.mod[,c('date','test','log.conc',"N_positive_recieved", "N_tests_received" )], id.vars=c('date', 'test'))
 ds.mod.c <- dcast(ds.mod.m, date~variable+test, fun.aggregate = mean)
 W2 <- ds.mod.c[, grep('log.conc', names(ds.mod.c))] 
 W2 <- apply(W2, 2, function(x){
@@ -357,10 +536,10 @@ W2 <- apply(W2, 2, function(x){
   return(x)
 } )
 scale.W2 <- apply(W2, 2, scale)
-Y2 <- ds.mod.c[,"pos.tests_R1, N1"]
+Y2 <- ds.mod.c[,"N_positive_recieved_R1, N1"]
 Y2[is.nan(Y2)] <-NA
 
-log.offset2 <- log(ds.mod.c[,"cov.tests_R1, N1"])
+log.offset2 <- log(ds.mod.c[,"N_tests_received_R1, N1"])
 log.offset2[is.nan(log.offset2)] <-NA
 log.offset2[is.na(log.offset2)] <-0
 W2.scale <- apply(W2,2, scale)
@@ -372,7 +551,7 @@ mods.cases.dx <- pblapply(c(-1:7), function(zz) mod2.indiv.lag.func( Y=Y2, log.o
 saveRDS(mods.cases.dx,'./results/mods.cases.dx.rds')
 
 ```
-Rate ratio (+/- 98.75% Credible) showing the relative increase in positive tests associated with a 1-log increase of sewage RNA concentration at various lags (based on date of test). This shows the strongest association with a lag of 4 days, with uncertainty in the estimates and in the length of the lag. From the plots,  the sewage sludge RNA concentration slightly preceded the increase in the cases (based on test date).
+Rate ratio (+/- 98.75% Credible) showing the relative increase in positive tests associated with a 1-log increase of sewage RNA concentration at various lags (based on date of test). This shows the strongest association with a lag of 4 days, with uncertainty in the estimates and in the length of the lag. From the plots,  the sewage sludge RNA concentration slightly preceded the increase in the cases (based on sample collection date).
 
 ```{r}
 mods.cases.dx <-
