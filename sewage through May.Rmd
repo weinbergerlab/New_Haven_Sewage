@@ -280,6 +280,8 @@ This shows that lags of 1-4 days are associated with hospitalization. +/-90% Cre
 
 ```{r}
 mod2 <- readRDS('./results/dl.mod2.rds')
+mod2.hosp.beta <- mod2[c('beta1', 'beta1.cum')]
+saveRDS(mod2.hosp.beta,'./results/dl.betas.hosp.rds')
 
 yrange <- range(mod2$beta1)
 plot(-1:8, mod2$beta1$post_means, ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
@@ -327,6 +329,8 @@ saveRDS(mod3,'./results/dl.mod3.cases.web.rds')
 This shows that lags of sewage data at longer time lags (6-8 days) best correlate with the time series of reported cases, with considerable uncertainty in the estimates. +/-90% Credible Intervals. Note that the lag between reported cases and the sewage data shrinks over time (see time series plots) as testing improves.
 ```{r, eval=T}
 mod3 <- readRDS('./results/dl.mod3.cases.web.rds')
+mod2.case.web.beta <- mod3[c('beta1', 'beta1.cum')]
+saveRDS(mod2.case.web.beta,'./results/dl.betas.case.web.rds')
 
 yrange <- range(mod3$beta1)
 plot(-1:8, mod3$beta1$post_means, ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
@@ -344,26 +348,6 @@ arrows(x0=-1:8, y0=mod3$beta1.cum$lower, y1=mod3$beta1.cum$upper, length=0)
 abline(h=0)
 ```
 
-### Distributed lags for the association between viral RNA in sewage and COVID hospitalizations. 
-This shows that lags of 1-4 days are associated with hospitalization. +/-90% Credible Intervals. From the plots,  the sewage sludge RNA concentration increase preceded the increase in hospital admissions.
-
-```{r}
-mod2 <- readRDS('./results/dl.mod2.rds')
-
-yrange <- range(mod2$beta1)
-plot(-1:8, mod2$beta1$post_means, ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
-arrows(x0=-1:8, y0=mod2$beta1$lower, y1=mod2$beta1$upper, length=0)
-abline(h=0)
-```
-
-Cumulative relationship between viral RNA in sewage and hospital admissions. This shows that lags of sewage data of 1-4 days together best correlate with the hospitalization time series (after 4 days, cumulative beta does not increase). +/-90% Credible Intervals.
-
-```{r}
-yrange <- range(mod2$beta1.cum)
-plot(-1:8, mod2$beta1.cum$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)', pch=16 )
-arrows(x0=-1:8, y0=mod2$beta1.cum$lower, y1=mod2$beta1.cum$upper, length=0)
-abline(h=0)
-```
 
 ### Distributed lags for the association between viral RNA in sewage and new COVID-19 cases, based on date of report to DPH
 
@@ -400,9 +384,10 @@ saveRDS(mod3,'./results/dl.mod3.cases.rds')
 This shows that lags of sewage data at longer time lags (0-4 days) best correlate with the time series of reported cases, with considerable uncertainty in the estimates. +/-90% Credible Intervals. Note that the lag between reported cases and the sewage data shrinks over time (see time series plots) as testing improves.
 ```{r, eval=T}
 mod3 <- readRDS('./results/dl.mod3.cases.rds')
+mod3.betas <- mod3[c('beta1','beta1.cum')]
+saveRDS(mod3.betas,'./results/dl.mod3.betas.report.to.dph.rds')
 
 yrange <- range(mod3$beta1)
-plot(-1:8, mod3$beta1$post_means, ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
 arrows(x0=-1:8, y0=mod3$beta1$lower, y1=mod3$beta1$upper, length=0)
 abline(h=0)
 ```
@@ -479,6 +464,8 @@ This shows that lags of 0-2 days are associated with the case time series, based
 
 ```{r, eval=T}
 mod2 <- readRDS('./results/dl.mod2.pct.pos.rds')
+mod2.betas <- mod2[c('beta1', 'beta1.cum')]
+saveRDS(mod2.betas,'./results/dl.mod2.betas.sample.date.pct.post.rds')
 
 yrange <- range(mod2$beta1)
 plot(-1:8, mod2$beta1$post_means, ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
@@ -512,6 +499,7 @@ Rate ratio (+/- 98.75% Credible intervals)  showing the relative increase in pos
 ```{r}
 mods.hosp <-
   readRDS('./results/mods.hosp.rds')
+
 #Extract the betas
 beta.hospt <- lapply(mods.hosp,'[[','beta1')
 beta.hospt <- do.call('rbind.data.frame',beta.hospt)
@@ -556,6 +544,8 @@ Rate ratio (+/- 98.75% Credible) showing the relative increase in positive tests
 ```{r}
 mods.cases.dx <-
   readRDS('./results/mods.cases.dx.rds')
+
+
 #Extract the betas
 beta.dx <- lapply(mods.cases.dx,'[[','beta1')
 beta.dx <- do.call('rbind.data.frame',beta.dx)
