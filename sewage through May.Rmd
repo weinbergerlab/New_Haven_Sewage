@@ -366,7 +366,7 @@ Y3[is.nan(Y3)] <-NA
 #Y3[is.na(Y3)] <- 0
 
 log.offset3 <- log(ds.mod.c[,'N_tests_reported_R1, N1'])
-log.offset3[is.nan(log.offset3)] <-1
+log.offset3[is.nan(log.offset3)] <-0
 log.offset3[is.na(log.offset3)] <-0
 
 log.offset3.null <- rep(0, length(log.offset3))
@@ -385,8 +385,9 @@ This shows that lags of sewage data at longer time lags (0-4 days) best correlat
 ```{r, eval=T}
 mod3 <- readRDS('./results/dl.mod3.cases.rds')
 mod3.betas <- mod3[c('beta1','beta1.cum')]
-saveRDS(mod3.betas,'./results/dl.mod3.betas.report.to.dph.rds')
+saveRDS(mod3.betas,'./results/dl.mod3.betas.report.to.dph.denom.rds')
 
+plot(-1:8, mod3$beta1$post_means, ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
 yrange <- range(mod3$beta1)
 arrows(x0=-1:8, y0=mod3$beta1$lower, y1=mod3$beta1$upper, length=0)
 abline(h=0)
@@ -415,6 +416,9 @@ This shows largely the same pattern as when adjusting for testing volume. (1-4 d
 ```{r, eval=T}
 mod3.no.offset <-
   readRDS('./results/dl.mod3.cases.no.offset.rds')
+
+mod3.betas.no.offset <- mod3.no.offset[c('beta1','beta1.cum')]
+saveRDS(mod3.betas.no.offset,'./results/dl.mod3.betas.report.to.dph.no.offset.rds')
 
 yrange <- range(mod3.no.offset$beta1)
 
