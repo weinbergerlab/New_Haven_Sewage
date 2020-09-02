@@ -210,7 +210,7 @@ abline(v=seq.Date(from=as.Date('2020-03-17'),length.out=15, by='week') , lty=2, 
 
 
 #Pos tests ased on date of sample collection
-plot(ds3$date, ds3$N_positive_recieved, main='New cases, based on sample receipt date', xlab='Date', ylab='Log(cases)', bty='l' , type='l')
+plot(ds3$date, ds3$N_positive_recieved, main='New cases, based on sample receipt date', xlab='Date', ylab='Cases', bty='l' , type='l')
 polygon( as.Date(c( c('2020-03-17','2020-03-24'), c('2020-03-24','2020-03-17'))), c(c(-1000,-1000 ),c(1000,1000)),col = rgb(0, 0, 1, alpha = 0.1), border = NA)
 abline(v=seq.Date(from=as.Date('2020-03-17'),length.out=15, by='week') , lty=2, col=rgb(0,0,0,alpha=0.1))
 
@@ -222,6 +222,7 @@ abline(v=seq.Date(from=as.Date('2020-03-17'),length.out=15, by='week') , lty=2, 
 
 
 ```
+
 
 Comparing the new cases of COVID-19 based on sample receipt date or date of report, we can see a long lag early in the epidemic between sample collection date and date of report to DPH. This gap seems to narrow as the epidemic progresses, perhaps due to improvements in testing
 ```{r}
