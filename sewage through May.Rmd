@@ -210,7 +210,7 @@ abline(v=seq.Date(from=as.Date('2020-03-17'),length.out=15, by='week') , lty=2, 
 
 
 #Pos tests ased on date of sample collection
-plot(ds3$date, ds3$N_positive_recieved, main='New cases, based on sample receipt date', xlab='Date', ylab='Log(cases)', bty='l' , type='l')
+plot(ds3$date, ds3$N_positive_recieved, main='New cases, based on sample receipt date', xlab='Date', ylab='Cases', bty='l' , type='l')
 polygon( as.Date(c( c('2020-03-17','2020-03-24'), c('2020-03-24','2020-03-17'))), c(c(-1000,-1000 ),c(1000,1000)),col = rgb(0, 0, 1, alpha = 0.1), border = NA)
 abline(v=seq.Date(from=as.Date('2020-03-17'),length.out=15, by='week') , lty=2, col=rgb(0,0,0,alpha=0.1))
 
@@ -222,6 +222,7 @@ abline(v=seq.Date(from=as.Date('2020-03-17'),length.out=15, by='week') , lty=2, 
 
 
 ```
+
 
 Comparing the new cases of COVID-19 based on sample receipt date or date of report, we can see a long lag early in the epidemic between sample collection date and date of report to DPH. This gap seems to narrow as the epidemic progresses, perhaps due to improvements in testing
 ```{r}
@@ -280,6 +281,8 @@ This shows that lags of 1-4 days are associated with hospitalization. +/-90% Cre
 
 ```{r}
 mod2 <- readRDS('./results/dl.mod2.rds')
+mod2.hosp.beta <- mod2[c('beta1', 'beta1.cum')]
+saveRDS(mod2.hosp.beta,'./results/dl.betas.hosp.rds')
 
 yrange <- range(mod2$beta1)
 plot(-1:8, mod2$beta1$post_means, ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
@@ -327,6 +330,8 @@ saveRDS(mod3,'./results/dl.mod3.cases.web.rds')
 This shows that lags of sewage data at longer time lags (6-8 days) best correlate with the time series of reported cases, with considerable uncertainty in the estimates. +/-90% Credible Intervals. Note that the lag between reported cases and the sewage data shrinks over time (see time series plots) as testing improves.
 ```{r, eval=T}
 mod3 <- readRDS('./results/dl.mod3.cases.web.rds')
+mod2.case.web.beta <- mod3[c('beta1', 'beta1.cum')]
+saveRDS(mod2.case.web.beta,'./results/dl.betas.case.web.rds')
 
 yrange <- range(mod3$beta1)
 plot(-1:8, mod3$beta1$post_means, ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
@@ -344,26 +349,6 @@ arrows(x0=-1:8, y0=mod3$beta1.cum$lower, y1=mod3$beta1.cum$upper, length=0)
 abline(h=0)
 ```
 
-### Distributed lags for the association between viral RNA in sewage and COVID hospitalizations. 
-This shows that lags of 1-4 days are associated with hospitalization. +/-90% Credible Intervals. From the plots,  the sewage sludge RNA concentration increase preceded the increase in hospital admissions.
-
-```{r}
-mod2 <- readRDS('./results/dl.mod2.rds')
-
-yrange <- range(mod2$beta1)
-plot(-1:8, mod2$beta1$post_means, ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
-arrows(x0=-1:8, y0=mod2$beta1$lower, y1=mod2$beta1$upper, length=0)
-abline(h=0)
-```
-
-Cumulative relationship between viral RNA in sewage and hospital admissions. This shows that lags of sewage data of 1-4 days together best correlate with the hospitalization time series (after 4 days, cumulative beta does not increase). +/-90% Credible Intervals.
-
-```{r}
-yrange <- range(mod2$beta1.cum)
-plot(-1:8, mod2$beta1.cum$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)', pch=16 )
-arrows(x0=-1:8, y0=mod2$beta1.cum$lower, y1=mod2$beta1.cum$upper, length=0)
-abline(h=0)
-```
 
 ### Distributed lags for the association between viral RNA in sewage and new COVID-19 cases, based on date of report to DPH
 
@@ -382,7 +367,7 @@ Y3[is.nan(Y3)] <-NA
 #Y3[is.na(Y3)] <- 0
 
 log.offset3 <- log(ds.mod.c[,'N_tests_reported_R1, N1'])
-log.offset3[is.nan(log.offset3)] <-1
+log.offset3[is.nan(log.offset3)] <-0
 log.offset3[is.na(log.offset3)] <-0
 
 log.offset3.null <- rep(0, length(log.offset3))
@@ -400,9 +385,11 @@ saveRDS(mod3,'./results/dl.mod3.cases.rds')
 This shows that lags of sewage data at longer time lags (0-4 days) best correlate with the time series of reported cases, with considerable uncertainty in the estimates. +/-90% Credible Intervals. Note that the lag between reported cases and the sewage data shrinks over time (see time series plots) as testing improves.
 ```{r, eval=T}
 mod3 <- readRDS('./results/dl.mod3.cases.rds')
+mod3.betas <- mod3[c('beta1','beta1.cum')]
+saveRDS(mod3.betas,'./results/dl.mod3.betas.report.to.dph.denom.rds')
 
-yrange <- range(mod3$beta1)
 plot(-1:8, mod3$beta1$post_means, ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
+yrange <- range(mod3$beta1)
 arrows(x0=-1:8, y0=mod3$beta1$lower, y1=mod3$beta1$upper, length=0)
 abline(h=0)
 ```
@@ -430,6 +417,9 @@ This shows largely the same pattern as when adjusting for testing volume. (1-4 d
 ```{r, eval=T}
 mod3.no.offset <-
   readRDS('./results/dl.mod3.cases.no.offset.rds')
+
+mod3.betas.no.offset <- mod3.no.offset[c('beta1','beta1.cum')]
+saveRDS(mod3.betas.no.offset,'./results/dl.mod3.betas.report.to.dph.no.offset.rds')
 
 yrange <- range(mod3.no.offset$beta1)
 
@@ -479,6 +469,8 @@ This shows that lags of 0-2 days are associated with the case time series, based
 
 ```{r, eval=T}
 mod2 <- readRDS('./results/dl.mod2.pct.pos.rds')
+mod2.betas <- mod2[c('beta1', 'beta1.cum')]
+saveRDS(mod2.betas,'./results/dl.mod2.betas.sample.date.pct.post.rds')
 
 yrange <- range(mod2$beta1)
 plot(-1:8, mod2$beta1$post_means, ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
@@ -512,6 +504,7 @@ Rate ratio (+/- 98.75% Credible intervals)  showing the relative increase in pos
 ```{r}
 mods.hosp <-
   readRDS('./results/mods.hosp.rds')
+
 #Extract the betas
 beta.hospt <- lapply(mods.hosp,'[[','beta1')
 beta.hospt <- do.call('rbind.data.frame',beta.hospt)
@@ -556,6 +549,8 @@ Rate ratio (+/- 98.75% Credible) showing the relative increase in positive tests
 ```{r}
 mods.cases.dx <-
   readRDS('./results/mods.cases.dx.rds')
+
+
 #Extract the betas
 beta.dx <- lapply(mods.cases.dx,'[[','beta1')
 beta.dx <- do.call('rbind.data.frame',beta.dx)
