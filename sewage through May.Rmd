@@ -435,7 +435,7 @@ arrows(x0=-1:8, y0=mod3.no.offset$beta1.cum$lower, y1=mod3.no.offset$beta1.cum$u
 abline(h=0)
 ```
 
-### Distributed lags for the association between viral RNA in sewage and number positive, based on date when the sample was collected. 
+### Distributed lags for the association between viral RNA in sewage and number or percent positive, based on date when the sample was collected. 
 
 ```{r, eval=T}
 #Note data on new cases are missing
@@ -457,12 +457,17 @@ log.offset2[is.na(log.offset2)] <-0
 
 #log.offset2 <- rep(0,length(Y2))
 
+log.offset2.null <- rep(0, length(log.offset2))
+
 W2.scale <- apply(W2,2, scale)
 ```
 
 ```{r, eval=params$rerun_model, include=F}
 mod2 <- mod2.func(W=W2.scale, Y=Y2, log.offset=log.offset2)
 saveRDS(mod2, './results/dl.mod2.pct.pos.rds')
+
+mod2.no.offset <- mod2.func(W=W2.scale, Y=Y2, log.offset=log.offset2.null)
+saveRDS(mod2.no.offset, './results/dl.mod2.N.pos.specdate.rds')
 ```
 
 This shows that lags of 0-2 days are associated with the case time series, based on date of test, (on the cumulative plot, beta does not increase after 2 days) +/-90% Credible Intervals. From the plots, the sewage sludge RNA concentration increase preceded the increase in number of cases, based on sample collection date.
@@ -478,7 +483,7 @@ arrows(x0=-1:8, y0=mod2$beta1$lower, y1=mod2$beta1$upper, length=0)
 abline(h=0)
 ```
 
-Cumulative relationship between viral RNA in sewage and number of cases based on sample collection date. +/-90% Credible Intervals.
+Cumulative relationship between viral RNA in sewage and percent positive based on sample collection date. +/-90% Credible Intervals.
 
 ```{r, eval=T}
 yrange <- range(mod2$beta1.cum)
@@ -487,6 +492,30 @@ arrows(x0=-1:8, y0=mod2$beta1.cum$lower, y1=mod2$beta1.cum$upper, length=0)
 abline(h=0)
 ```
 
+
+and same thing with no offset term
+
+```{r, eval=T}
+mod2.no.offset <- readRDS('./results/dl.mod2.N.pos.specdate.rds')
+
+mod2.betas.no.offset <- mod2.no.offset[c('beta1', 'beta1.cum')]
+saveRDS(mod2.betas.no.offset,'./results/dl.mod2.betas.sample.date.N.pos.rds')
+
+yrange <- range(mod2.no.offset$beta1)
+plot(-1:8, mod2.no.offset$beta1$post_means, ylim=yrange, bty='l', ylab='Beta', xlab='Lag (days)' , pch=16)
+arrows(x0=-1:8, y0=mod2.no.offset$beta1$lower, y1=mod2.no.offset$beta1$upper, length=0)
+abline(h=0)
+```
+
+
+Cumulative relationship between viral RNA in sewage and number of cases based on sample collection date. +/-90% Credible Intervals.
+
+```{r, eval=T}
+yrange <- range(mod2.no.offset$beta1.cum)
+plot(-1:8, mod2.no.offset$beta1.cum$post_means, ylim=yrange, bty='l', ylab='Cumulative beta', xlab='Lag (days)', pch=16 )
+arrows(x0=-1:8, y0=mod2.no.offset$beta1.cum$lower, y1=mod2.no.offset$beta1.cum$upper, length=0)
+abline(h=0)
+```
 
 ## Association between sewage concentration and epidemiological indicators (Individual lags)
 -All of the plots of individual lags show 98.75% credible intervals, which represent an alpha of 0.1, adjusted for multiple testing.
